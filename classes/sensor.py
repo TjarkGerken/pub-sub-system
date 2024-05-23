@@ -18,7 +18,7 @@ class Sensor:
 
         # Sensor info
         self.sensor_port = sensor_port
-        self.sensor_id = f"{location.upper()}_{sensor_type.upper()}"
+        self.sensor_id = f"SENSOR_{location.upper()}_{sensor_type.upper()}"
         self.sensor_type = sensor_type
         self.location = location
 
@@ -26,7 +26,7 @@ class Sensor:
         self.__upd_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.__upd_socket.bind(("127.0.0.1", self.sensor_port))
 
-        print(f"[INFO] | {self.sensor_id} | INITIALIZED")
+        print(f"[INFO] | {self.sensor_id} | Sensor initialized")
 
         # Start threads
         threading.Thread(target=self.run_sensor).start()
