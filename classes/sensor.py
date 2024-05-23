@@ -6,7 +6,7 @@ import socket
 import threading
 import time
 
-from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS
+from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS, RETRY_DURATION_IN_SECONDS
 
 
 class Sensor:
@@ -64,7 +64,6 @@ class Sensor:
             time.sleep(sleep_time)
 
     def run_messenger(self):
-        X = 30
         while True:
             if self.__sensor_results.empty():
                 time.sleep(1)
@@ -76,14 +75,11 @@ class Sensor:
             start_time = time.time()
             while True:
                 self.__upd_socket.sendto(message, ("127.0.0.1", 5004))
-
-                # Listen for the response
                 ready = select.select([self.__upd_socket], [], [], 5)
-
                 if ready[0]:
                     data, addr = self.__upd_socket.recvfrom(1024)
                     # print(f"{self.sensor_id} | Response Successful")
                     break
-                elif time.time() - start_time > X:
+                elif time.time() - start_time > RETRY_DURATION_IN_SECONDS:
                     print(f"{self.sensor_id} | Response timeout")
                     break
