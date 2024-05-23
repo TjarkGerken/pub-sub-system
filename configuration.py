@@ -1,0 +1,5 @@
+# Definition of changeable configurations
+
+OUTAGE_DURATION_IN_SECONDS = 10
+LOGGING_LEVEL = "TBD"
+MAX_SENSOR_INTERVAL_IN_SECONDS = 2
