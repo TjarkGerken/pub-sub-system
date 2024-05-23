@@ -49,6 +49,7 @@ class MessageBroker:
 
     def handle_subscription_message(self, data, addr):
         data = data.decode()
+        message = None
         if data:
             if data == "SUBSCRIBE_UV":
                 self.__subscribers_uv.append(addr)
@@ -56,7 +57,7 @@ class MessageBroker:
             elif data == "SUBSCRIBE_TEMP":
                 self.__subscribers_temp.append(addr)
                 message = "Temperature 🌡️️"
-            confirmation_message = "Subscribed to " + message
+            confirmation_message = "Successfully Subscribed to " + message
             self.__subscription_udp_socket.sendto(confirmation_message.encode(), addr)
 
     def run_broadcast(self):
@@ -70,13 +71,10 @@ class MessageBroker:
                 self.broadcast_message_to_list(self.__subscribers_uv, message)
             elif message["sensor_type"] == "S":
                 self.broadcast_message_to_list(self.__subscribers_temp, message)
-            # print(f"Broadcasting message: {message}")
-            # https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
 
     def broadcast_message_to_list(self, broadcast_list, message):
         for subscriber in broadcast_list:
             threading.Thread(target=self.broadcast_message, args=(message, subscriber)).start()
-            # self.broadcast_message(message, subscriber)
 
     def broadcast_message(self, message, subscriber):
         start_time = time.time()
