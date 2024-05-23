@@ -32,10 +32,8 @@ class Subscriber:
         # Listen for the response from the messagebroker with a port and store it in the subscriptions
         subscriptions = []
         if self.__subscriber_type == "U" or self.__subscriber_type == "B":
-            print("Subscribing to UV ☀️☀️")
             subscriptions.append(f"SUBSCRIBE_UV".encode())
         if self.__subscriber_type == "S" or self.__subscriber_type == "B":
-            print("Subscribing to Temp 🌡🌡")
             subscriptions.append(f"SUBSCRIBE_TEMP".encode())
 
         for subscription in subscriptions:
@@ -45,7 +43,7 @@ class Subscriber:
                 start_time = time.time()
                 if ready[0]:
                     data, addr = self.__subscription_udp_socket.recvfrom(1024)
-                    print(f"{self.__subscriber_id} | Response Successful")
+                    print(f"[INFO] | {self.__subscriber_id} | {data.decode()}")
                     break
                 elif time.time() - start_time > RETRY_DURATION_IN_SECONDS:
                     print(f"{self.__subscriber_id} | Response timeout")
@@ -54,7 +52,6 @@ class Subscriber:
     def run_subscriber(self):
         # For all the ports in the subscriptions list, listen for the messages
         # If a message is received, put it in the messageQueue
-        print("Run subscriber")
         while True:
             data, addr = self.__subscription_udp_socket.recvfrom(1024)
             handle_connection_thread = threading.Thread(target=self.handle_incoming_message, args=(data, addr))

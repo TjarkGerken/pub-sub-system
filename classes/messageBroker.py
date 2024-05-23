@@ -15,7 +15,6 @@ class MessageBroker:
     __subscribers_temp = []
 
     def __init__(self):
-        print("MessageBroker initialized")
         self.__sensor_udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.__subscription_udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.__broadcast_udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -23,8 +22,6 @@ class MessageBroker:
         self.__sensor_udp_socket.bind(("127.0.0.1", 5004))
         self.__subscription_udp_socket.bind(("127.0.0.1", 6000))
         self.__broadcast_udp_socket.bind(("127.0.0.1", 6200))
-
-
 
         threading.Thread(target=self.run_broadcast).start()
         threading.Thread(target=self.run_sensor_listener).start()
@@ -53,16 +50,14 @@ class MessageBroker:
     def handle_subscription_message(self, data, addr):
         data = data.decode()
         if data:
-            print(data)
             if data == "SUBSCRIBE_UV":
                 self.__subscribers_uv.append(addr)
+                message = "UV-Index ☀️"
             elif data == "SUBSCRIBE_TEMP":
                 self.__subscribers_temp.append(addr)
-            confirmation_message = "Subscription received successfully"
+                message = "Temperature 🌡️️"
+            confirmation_message = "Subscribed to " + message
             self.__subscription_udp_socket.sendto(confirmation_message.encode(), addr)
-        # Add the subscriber to the list of subscribers
-        print(f"Subscribers UV: {self.__subscribers_uv}")
-        print(f"Subscribers TEMP: {self.__subscribers_temp}")
 
     def run_broadcast(self):
         while True:
@@ -80,7 +75,8 @@ class MessageBroker:
 
     def broadcast_message_to_list(self, broadcast_list, message):
         for subscriber in broadcast_list:
-            self.broadcast_message(message, subscriber)
+            threading.Thread(target=self.broadcast_message, args=(message, subscriber)).start()
+            # self.broadcast_message(message, subscriber)
 
     def broadcast_message(self, message, subscriber):
         start_time = time.time()
