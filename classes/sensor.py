@@ -2,10 +2,10 @@ import datetime
 import queue
 import random
 import select
-import socket
 import threading
 import time
 
+from classes.udpsocket import UdpSocket
 from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS, RETRY_DURATION_IN_SECONDS
 
 
@@ -23,8 +23,7 @@ class Sensor:
         self.location = location
 
         # Socket
-        self.__upd_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.__upd_socket.bind(("127.0.0.1", self.sensor_port))
+        self.__upd_socket = UdpSocket(self.sensor_port, self.sensor_id)
 
         print(f"[INFO] | {self.sensor_id} | Sensor initialized")
 
@@ -66,20 +65,8 @@ class Sensor:
     def run_messenger(self):
         while True:
             if self.__sensor_results.empty():
-                time.sleep(1)
                 continue
 
             sensor_result = self.__sensor_results.get()
-            message = str(sensor_result).encode()
-
-            start_time = time.time()
-            while True:
-                self.__upd_socket.sendto(message, ("127.0.0.1", 5004))
-                ready = select.select([self.__upd_socket], [], [], 5)
-                if ready[0]:
-                    data, addr = self.__upd_socket.recvfrom(1024)
-                    # print(f"{self.sensor_id} | Response Successful")
-                    break
-                elif time.time() - start_time > RETRY_DURATION_IN_SECONDS:
-                    print(f"{self.sensor_id} | Response timeout")
-                    break
+            message = str(sensor_result)
+            self.__upd_socket.three_way_send(message, ("127.0.0.1", 5004))

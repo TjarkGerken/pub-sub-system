@@ -1,4 +1,3 @@
-import json
 import queue
 import select
 import socket
@@ -6,6 +5,7 @@ import threading
 import ast
 import time
 
+from classes.udpsocket import UdpSocket
 from configuration import RETRY_DURATION_IN_SECONDS
 
 
@@ -15,40 +15,33 @@ class MessageBroker:
     __subscribers_temp = []
 
     def __init__(self):
-        self.__sensor_udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.__subscription_udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.__broadcast_udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.__sensor_udp_socket = UdpSocket(5004, "MB_SENSOR")
+        self.__subscription_udp_socket = UdpSocket(6000, "MB_SUBSCRIPTION")
+        self.__broadcast_udp_socket = UdpSocket(6200, "MB_BROADCAST")
 
-        self.__sensor_udp_socket.bind(("127.0.0.1", 5004))
-        self.__subscription_udp_socket.bind(("127.0.0.1", 6000))
-        self.__broadcast_udp_socket.bind(("127.0.0.1", 6200))
-
-        threading.Thread(target=self.run_broadcast).start()
         threading.Thread(target=self.run_sensor_listener).start()
         threading.Thread(target=self.run_subscription_listener).start()
+        threading.Thread(target=self.run_broadcast).start()
 
     def handle_sensor_message(self, data, addr):
-        # print(f"Received message | {data.decode()} from {addr}")
-
-        confirmation_message = "Message received successfully"
-        self.__sensor_udp_socket.sendto(confirmation_message.encode(), addr)
-        self.__messageQueue.put(data.decode())
+        self.__messageQueue.put(data)
 
     def run_sensor_listener(self):
         while True:
-            data, addr = self.__sensor_udp_socket.recvfrom(1024)
-            handle_connection_thread = threading.Thread(target=self.handle_sensor_message, args=(data, addr))
-            handle_connection_thread.start()
+            result = self.__sensor_udp_socket.listen()
+            if result is not None:
+                data, addr = result
+                handle_connection_thread = threading.Thread(target=self.handle_sensor_message, args=(data, addr))
+                handle_connection_thread.start()
 
     def run_subscription_listener(self):
-
         while True:
-            data, addr = self.__subscription_udp_socket.recvfrom(1024)
-            handle_connection_thread = threading.Thread(target=self.handle_subscription_message, args=(data, addr))
-            handle_connection_thread.start()
+            result = self.__subscription_udp_socket.listen()
+            if result is not None:
+                data, addr = result
+                threading.Thread(target=self.handle_subscription_message, args=(data, addr)).start()
 
     def handle_subscription_message(self, data, addr):
-        data = data.decode()
         message = None
         if data:
             if data == "SUBSCRIBE_UV":
@@ -58,7 +51,7 @@ class MessageBroker:
                 self.__subscribers_temp.append(addr)
                 message = "Temperature 🌡️️"
             confirmation_message = "Successfully Subscribed to " + message
-            self.__subscription_udp_socket.sendto(confirmation_message.encode(), addr)
+            print(confirmation_message)
 
     def run_broadcast(self):
         while True:
@@ -79,12 +72,4 @@ class MessageBroker:
     def broadcast_message(self, message, subscriber):
         start_time = time.time()
         while True:
-            self.__broadcast_udp_socket.sendto(str(message).encode(), subscriber)
-            ready = select.select([self.__broadcast_udp_socket], [], [], 5)
-            if ready[0]:
-                data, addr = self.__sensor_udp_socket.recvfrom(1024)
-                # print(f"[SUCCESS]| MB | RESPONSE RECEIVED")
-                break
-            elif time.time() - start_time > RETRY_DURATION_IN_SECONDS:
-                print(f"[ERROR]| MB | Response timeout")
-                break
+            self.__broadcast_udp_socket.three_way_send(str(message), subscriber)

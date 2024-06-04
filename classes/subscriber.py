@@ -1,9 +1,12 @@
+import json
 import queue
 import select
 import socket
 import threading
 import time
+from json import JSONDecodeError
 
+from classes.udpsocket import UdpSocket
 from configuration import RETRY_DURATION_IN_SECONDS
 
 
@@ -18,10 +21,9 @@ class Subscriber:
         self.__subscriber_id = f"SUBSCRIBER_{subscriber_type}_{subscriber_port}"
 
         # Socket
-        self.__subscription_udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.__subscription_udp_socket.bind(("127.0.0.1", subscriber_port))
+        self.__subscription_udp_socket = UdpSocket(subscriber_port, self.__subscriber_id)
 
-        # Subscripe to the messagebroker on the appropriate ports
+        # Subscribe to the message broker on the appropriate ports
         self.initiate_subscription()
 
         threading.Thread(target=self.run_subscriber).start()
@@ -32,40 +34,43 @@ class Subscriber:
         # Listen for the response from the messagebroker with a port and store it in the subscriptions
         subscriptions = []
         if self.__subscriber_type == "U" or self.__subscriber_type == "B":
-            subscriptions.append(f"SUBSCRIBE_UV".encode())
+            subscriptions.append(f"SUBSCRIBE_UV")
         if self.__subscriber_type == "S" or self.__subscriber_type == "B":
-            subscriptions.append(f"SUBSCRIBE_TEMP".encode())
+            subscriptions.append(f"SUBSCRIBE_TEMP")
 
         for subscription in subscriptions:
-            while True:
-                self.__subscription_udp_socket.sendto(subscription, ("127.0.0.1", 6000))
-                ready = select.select([self.__subscription_udp_socket], [], [], 5)
-                start_time = time.time()
-                if ready[0]:
-                    data, addr = self.__subscription_udp_socket.recvfrom(1024)
-                    print(f"[INFO] | {self.__subscriber_id} | {data.decode()}")
-                    break
-                elif time.time() - start_time > RETRY_DURATION_IN_SECONDS:
-                    print(f"{self.__subscriber_id} | Response timeout")
-                    break
+            self.__subscription_udp_socket.three_way_send(subscription, ("127.0.0.1", 6000))
 
     def run_subscriber(self):
         # For all the ports in the subscriptions list, listen for the messages
         # If a message is received, put it in the messageQueue
         while True:
-            data, addr = self.__subscription_udp_socket.recvfrom(1024)
-            handle_connection_thread = threading.Thread(target=self.handle_incoming_message, args=(data, addr))
-            handle_connection_thread.start()
+            result = self.__subscription_udp_socket.listen()
+            if result is not None:
+                data, addr = result
+                handle_connection_thread = threading.Thread(target=self.handle_incoming_message, args=(data, addr))
+                handle_connection_thread.start()
 
     def run_logger(self):
+        sensor_value = ""
         while True:
             if self.__messageQueue.empty():
-                time.sleep(1)
                 continue
             message = self.__messageQueue.get()
-            print(f"[SUCCESS] | {self.__subscriber_id} | {message}")
-            time.sleep(0.5)
+            message = message.replace("'", '"')
+
+            try:
+                message = json.loads(message)
+            except  JSONDecodeError as e:
+                print(f"[ERROR] | {self.__subscriber_id} | {e} | {message}")
+                continue
+            if message["sensor_type"] == "U":
+                sensor_value = f"☀️  {message['uv_index']} UV in {message['location']}"
+            elif message["sensor_type"] == "S":
+                sensor_value = f"🌡️  {message['temperature']}  °C in {message['location']}"
+
+            print(f"[SUCCESS] | {self.__subscriber_id} | {sensor_value}")
+            time.sleep(0.1)
 
     def handle_incoming_message(self, data, addr):
-        self.__subscription_udp_socket.sendto("Confirm".encode(), addr)
-        self.__messageQueue.put(data.decode())
+        self.__messageQueue.put(data)
