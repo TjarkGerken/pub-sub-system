@@ -18,7 +18,7 @@ class Sensor:
 
         # Sensor info
         self.sensor_port = sensor_port
-        self.sensor_id = f"SENSOR_{location.upper()}_{sensor_type.upper()}"
+        self.sensor_id = f"SENSOR_{location.upper()}_{sensor_type.upper()}_{sensor_port}"
         self.sensor_type = sensor_type
         self.location = location
 
@@ -70,3 +70,7 @@ class Sensor:
             sensor_result = self.__sensor_results.get()
             message = str(sensor_result)
             self.__upd_socket.three_way_send(message, ("127.0.0.1", 5004))
+
+
+if __name__ == "__main__":
+    Sensor(5001, "U", "BERLIN")

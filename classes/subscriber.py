@@ -74,3 +74,7 @@ class Subscriber:
 
     def handle_incoming_message(self, data, addr):
         self.__messageQueue.put(data)
+
+
+if __name__ == "__main__":
+    Subscriber(7002, "B")

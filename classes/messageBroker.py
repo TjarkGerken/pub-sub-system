@@ -1,12 +1,9 @@
-import queue
-import select
-import socket
-import threading
 import ast
+import queue
+import threading
 import time
 
 from classes.udpsocket import UdpSocket
-from configuration import RETRY_DURATION_IN_SECONDS
 
 
 class MessageBroker:
@@ -24,7 +21,13 @@ class MessageBroker:
         threading.Thread(target=self.run_broadcast).start()
 
     def handle_sensor_message(self, data, addr):
-        self.__messageQueue.put(data)
+        # TODO: IF ACK THEN SEND ACK
+        if data.decode() == "ACK":
+            print(f"{data.decode()}")
+
+        # TODO: IF DATA THEN PUT IN QUEUE
+        if data and not data.decode() == "ACK":
+            self.__messageQueue.put(data)
 
     def run_sensor_listener(self):
         while True:
@@ -73,3 +76,7 @@ class MessageBroker:
         start_time = time.time()
         while True:
             self.__broadcast_udp_socket.three_way_send(str(message), subscriber)
+
+
+if __name__ == "__main__":
+    MessageBroker()
