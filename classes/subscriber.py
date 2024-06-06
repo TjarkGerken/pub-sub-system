@@ -8,6 +8,7 @@ from json import JSONDecodeError
 
 from classes.udpsocket import UdpSocket
 from configuration import RETRY_DURATION_IN_SECONDS
+from utils.logger import logger
 
 
 class Subscriber:
@@ -62,14 +63,14 @@ class Subscriber:
             try:
                 message = json.loads(message)
             except  JSONDecodeError as e:
-                print(f"[ERROR] | {self.__subscriber_id} | {e} | {message}")
+                logger.error(f"[ERROR] | {self.__subscriber_id} | {e} | {message}")
                 continue
             if message["sensor_type"] == "U":
                 sensor_value = f"☀️  {message['uv_index']} UV in {message['location']}"
             elif message["sensor_type"] == "S":
                 sensor_value = f"🌡️  {message['temperature']}  °C in {message['location']}"
 
-            print(f"[SUCCESS] | {self.__subscriber_id} | {sensor_value}")
+            logger.info(f"SUCCESS | {self.__subscriber_id} | {sensor_value}")
             time.sleep(0.1)
 
     def handle_incoming_message(self, data, addr):

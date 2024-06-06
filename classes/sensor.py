@@ -7,6 +7,7 @@ import time
 
 from classes.udpsocket import UdpSocket
 from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS, RETRY_DURATION_IN_SECONDS
+from utils.logger import logger
 
 
 class Sensor:
@@ -25,7 +26,7 @@ class Sensor:
         # Socket
         self.__upd_socket = UdpSocket(self.sensor_port, self.sensor_id)
 
-        print(f"[INFO] | {self.sensor_id} | Sensor initialized")
+        logger.info(f"{self.sensor_id} | Sensor initialized")
 
         # Start threads
         threading.Thread(target=self.run_sensor).start()

@@ -7,7 +7,7 @@ import time
 
 from classes.udpsocket import UdpSocket
 from configuration import RETRY_DURATION_IN_SECONDS
-
+from utils.logger import logger
 
 class MessageBroker:
     __messageQueue = queue.Queue()
@@ -51,7 +51,7 @@ class MessageBroker:
                 self.__subscribers_temp.append(addr)
                 message = "Temperature 🌡️️"
             confirmation_message = "Successfully Subscribed to " + message
-            print(confirmation_message)
+            logger.info(confirmation_message)
 
     def run_broadcast(self):
         while True:
