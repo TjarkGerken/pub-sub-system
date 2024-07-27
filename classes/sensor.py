@@ -5,7 +5,7 @@ import select
 import threading
 import time
 
-from classes.udpsocket import TCP
+from classes.udpsocket import CommunicationProtocolSocket
 from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS, RETRY_DURATION_IN_SECONDS
 
 
@@ -23,7 +23,7 @@ class Sensor:
         self.location = location
 
         # Socket
-        self.__upd_socket = TCP(self.sensor_port, self.sensor_id)
+        self.__cp_socket = CommunicationProtocolSocket(self.sensor_id, self.sensor_port)
 
         print(f"[INFO] | {self.sensor_id} | Sensor initialized")
 
@@ -63,19 +63,13 @@ class Sensor:
             time.sleep(sleep_time)
 
     def run_messenger(self):
-        # Establish TCP connection over UDP
-        while not self.__upd_socket.initialize_connection(("127.0.0.1", 5004)):
-            print(f"[ERROR] | {self.sensor_id} | Could not establish connection. Retrying in {RETRY_DURATION_IN_SECONDS} seconds")
-            time.sleep(RETRY_DURATION_IN_SECONDS)
-
-        # Send sensor data
         while True:
             if self.__sensor_results.empty():
                 continue
 
             sensor_result = self.__sensor_results.get()
             message = str(sensor_result)
-            self.__upd_socket.send_packet(("127.0.0.1", 5004), message.encode())
+            self.__cp_socket.send_message(message, ("127.0.0.1", 5004))
 
 
 if __name__ == "__main__":

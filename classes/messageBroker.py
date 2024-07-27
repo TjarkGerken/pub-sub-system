@@ -3,7 +3,7 @@ import queue
 import threading
 import time
 
-from classes.udpsocket import UdpSocket
+from classes.udpsocket import CommunicationProtocolSocket
 
 
 class MessageBroker:
@@ -12,38 +12,32 @@ class MessageBroker:
     __subscribers_temp = []
 
     def __init__(self):
-        self.__sensor_udp_socket = UdpSocket(5004, "MB_SENSOR")
-        self.__subscription_udp_socket = UdpSocket(6000, "MB_SUBSCRIPTION")
-        self.__broadcast_udp_socket = UdpSocket(6200, "MB_BROADCAST")
+        self.__sensor_udp_socket = CommunicationProtocolSocket("MB_SENSOR", 5004)
+        self.__subscription_udp_socket = CommunicationProtocolSocket("MB_SUBSCRIPTION", 6000)
+        self.__broadcast_udp_socket = CommunicationProtocolSocket("MB_BROADCAST", 6200)
 
         threading.Thread(target=self.run_sensor_listener).start()
         threading.Thread(target=self.run_subscription_listener).start()
-        threading.Thread(target=self.run_broadcast).start()
-
-    def handle_sensor_message(self, data, addr):
-        # TODO: IF ACK THEN SEND ACK
-        if data.decode() == "ACK":
-            print(f"{data.decode()}")
-
-        # TODO: IF DATA THEN PUT IN QUEUE
-        if data and not data.decode() == "ACK":
-            self.__messageQueue.put(data)
+        # threading.Thread(target=self.run_broadcast).start()
 
     def run_sensor_listener(self):
         while True:
-            result = self.__sensor_udp_socket.listen()
-            if result is not None:
-                data, addr = result
-                handle_connection_thread = threading.Thread(target=self.handle_sensor_message, args=(data, addr))
-                handle_connection_thread.start()
+            result = self.__sensor_udp_socket.listener()
+            if result:
+                self.__messageQueue.put(result)
 
     def run_subscription_listener(self):
         while True:
+            while not self.__sensor_udp_socket.message_queue.empty():
+                data = self.__sensor_udp_socket.message_queue.get()
+                print(data)
+
+        """while True:
             result = self.__subscription_udp_socket.listen()
             if result is not None:
                 data, addr = result
                 threading.Thread(target=self.handle_subscription_message, args=(data, addr)).start()
-
+        """
     def handle_subscription_message(self, data, addr):
         message = None
         if data:
@@ -68,14 +62,14 @@ class MessageBroker:
             elif message["sensor_type"] == "S":
                 self.broadcast_message_to_list(self.__subscribers_temp, message)
 
-    def broadcast_message_to_list(self, broadcast_list, message):
-        for subscriber in broadcast_list:
-            threading.Thread(target=self.broadcast_message, args=(message, subscriber)).start()
-
     def broadcast_message(self, message, subscriber):
         start_time = time.time()
         while True:
-            self.__broadcast_udp_socket.three_way_send(str(message), subscriber)
+            self.__broadcast_udp_socket.send_message(str(message), subscriber)
+
+    def broadcast_message_to_list(self, broadcast_list, message):
+        for subscriber in broadcast_list:
+            threading.Thread(target=self.broadcast_message, args=(message, subscriber)).start()
 
 
 if __name__ == "__main__":
