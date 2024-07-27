@@ -1,6 +1,9 @@
 import logging
+import os
+
 from configuration import LOGGING_LEVEL
 from classes.log_formatter import BaseFormatter, ColorFormatter
+from pathlib import Path
 
 LEVELS = {
     "DEBUG": logging.DEBUG,
@@ -23,7 +26,11 @@ logger2.setLevel(logging.DEBUG)
 
 # Create handlers
 ## Create a debug handler
-temp_handler = logging.FileHandler("testing.csv")
+print(Path("./logs").absolute())
+if not Path("./logs").is_dir():
+    Path("./logs").mkdir()
+
+temp_handler = logging.FileHandler("logs/testing.csv")
 temp_handler.setLevel(logging.DEBUG)
 
 # Create formatters and add it to handlers

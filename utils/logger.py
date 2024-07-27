@@ -1,4 +1,6 @@
 import logging
+from pathlib import Path
+
 from configuration import LOGGING_LEVEL
 from classes.log_formatter import BaseFormatter, ColorFormatter
 
@@ -27,7 +29,10 @@ c_handler = logging.StreamHandler()
 c_handler.setLevel(log_level)
 
 ## Create a file handler
-f_handler = logging.FileHandler('log.log')
+if not Path("./logs").is_dir():
+    Path("./logs").mkdir()
+
+f_handler = logging.FileHandler('logs/log.log')
 f_handler.setLevel(log_level)
 
 # Create formatters and add it to handlers
