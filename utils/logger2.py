@@ -16,25 +16,18 @@ if log_level == logging.NOTSET:
     log_level = logging.INFO
 
 # Create a custom logger
-logger = logging.getLogger(__name__)
+logger2 = logging.getLogger(__name__)
 
 # Set default level of logger
-logger.setLevel(log_level)
+logger2.setLevel(logging.DEBUG)
 
 # Create handlers
-## Create a console handler
-c_handler = logging.StreamHandler()
-c_handler.setLevel(log_level)
-
-## Create a file handler
-f_handler = logging.FileHandler('log.log')
-f_handler.setLevel(log_level)
+## Create a debug handler
+temp_handler = logging.FileHandler("testing.csv")
+temp_handler.setLevel(logging.DEBUG)
 
 # Create formatters and add it to handlers
-format = "%(asctime)s [%(custom_group)s]\t[%(thread)d]\t[%(levelname)s]\t%(message)s"
-c_handler.setFormatter(ColorFormatter(format))
-f_handler.setFormatter(BaseFormatter(format))
+temp_handler.setFormatter(BaseFormatter("%(message)s"))
 
 # Add handlers to the logger
-logger.addHandler(c_handler)
-logger.addHandler(f_handler)
+logger2.addHandler(temp_handler)
