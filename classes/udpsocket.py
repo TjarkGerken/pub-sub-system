@@ -48,14 +48,18 @@ class CommunicationProtocolSocket:
         return hashlib.sha256(data.encode()).hexdigest()
 
     def send(self, address: tuple, flag: Literal["DATA", "ACK"], ack_number: int = 0, data: str = ""):
-        """
+                """
         Sends a packet to the specified address.
 
-        :param ack_number:
-        :param data:
-        :param address:
-        :param flag: DATA OR ACK
-        :return:
+        :param address: tuple
+            The address to send the packet to, in the form (IP, port).
+        :param flag: Literal["DATA", "ACK"]
+            The type of packet to send, either "DATA" or "ACK".
+        :param ack_number: int, optional
+            The acknowledgement number for the packet, default is 0.
+        :param data: str, optional
+            The data to send in the packet, default is an empty string.
+        :return: None
         """
         """
         connection_string = "127.0.0.1 | 5001 | 127.0.0.1 | 5005 | SQ_NO | ACK_NO | CHECKSUM | SENDER_UID | DATA AS JSON STRING"
@@ -76,7 +80,15 @@ class CommunicationProtocolSocket:
             print(f"Error sending data: {e}")
 
     def send_message(self, data, address):
-        # Send data
+        """
+        Sends a message to the specified address and waits for an acknowledgement.
+
+        :param data: str
+            The data to send in the message.
+        :param address: tuple
+            The address to send the message to, in the form (IP, port).
+        :return: None
+        """
         start_time = time.time()
         while time.time() - start_time < RETRY_DURATION_IN_SECONDS:
             self.send(address, "DATA", 0, data)
@@ -87,6 +99,11 @@ class CommunicationProtocolSocket:
         self.sequence_number += 1
 
     def listener(self):
+        """
+        Listens for incoming messages and starts a new thread to handle each message.
+
+        :return: None
+        """
         while True:
             message = self.cp_socket.recvfrom(1024)
             if message:
