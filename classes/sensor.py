@@ -5,12 +5,11 @@ import select
 import threading
 import time
 
-from classes.udpsocket import CommunicationProtocolSocket
+from classes.SendingCommunicationProtocolSocket import SendingCommunicationProtocolSocket
 from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS, RETRY_DURATION_IN_SECONDS
 
 
 class Sensor:
-    __sensor_results = queue.Queue()
 
     def __init__(self, sensor_port: int, sensor_type: str, location: str):
         if sensor_type not in ["U", "S"]:
@@ -21,9 +20,10 @@ class Sensor:
         self.sensor_id = f"SENSOR_{location.upper()}_{sensor_type.upper()}_{sensor_port}"
         self.sensor_type = sensor_type
         self.location = location
-
+        self.__sensor_results = queue.Queue()
+        self.__lock = threading.Lock
         # Socket
-        self.__cp_socket = CommunicationProtocolSocket(self.sensor_id, self.sensor_port)
+        self.__cp_socket = SendingCommunicationProtocolSocket(self.sensor_id, self.sensor_port)
 
         print(f"[INFO] | {self.sensor_id} | Sensor initialized")
 

@@ -3,7 +3,8 @@ import queue
 import threading
 import time
 
-from classes.udpsocket import CommunicationProtocolSocket
+from classes.ReceivingCommunicationProtocolSocket import ReceivingCommunicationProtocolSocket
+from classes.SendingCommunicationProtocolSocket import SendingCommunicationProtocolSocket
 
 
 class MessageBroker:
@@ -12,9 +13,9 @@ class MessageBroker:
     __subscribers_temp = []
 
     def __init__(self):
-        self.__sensor_udp_socket = CommunicationProtocolSocket("MB_SENSOR", 5004)
-        self.__subscription_udp_socket = CommunicationProtocolSocket("MB_SUBSCRIPTION", 6000)
-        self.__broadcast_udp_socket = CommunicationProtocolSocket("MB_BROADCAST", 6200)
+        self.__sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004)
+        self.__subscription_udp_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000)
+        self.__broadcast_udp_socket = SendingCommunicationProtocolSocket("MB_BROADCAST", 6200)
 
         threading.Thread(target=self.run_sensor_listener).start()
         threading.Thread(target=self.run_subscription_listener).start()
@@ -30,14 +31,14 @@ class MessageBroker:
         while True:
             while not self.__sensor_udp_socket.message_queue.empty():
                 data = self.__sensor_udp_socket.message_queue.get()
-                print(data)
-
-        """while True:
-            result = self.__subscription_udp_socket.listen()
-            if result is not None:
-                data, addr = result
-                threading.Thread(target=self.handle_subscription_message, args=(data, addr)).start()
-        """
+                # print(data)
+            """
+            while True:
+                result = self.__subscription_udp_socket.listen()
+                if result is not None:
+                    data, addr = result
+                    threading.Thread(target=self.handle_subscription_message, args=(data, addr)).start()
+            """
     def handle_subscription_message(self, data, addr):
         message = None
         if data:

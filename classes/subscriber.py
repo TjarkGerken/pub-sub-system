@@ -6,7 +6,7 @@ import threading
 import time
 from json import JSONDecodeError
 
-from classes.udpsocket import CommunicationProtocolSocket
+from classes.ReceivingCommunicationProtocolSocket import ReceivingCommunicationProtocolSocket
 from configuration import RETRY_DURATION_IN_SECONDS
 
 
@@ -21,7 +21,7 @@ class Subscriber:
         self.__subscriber_id = f"SUBSCRIBER_{subscriber_type}_{subscriber_port}"
 
         # Socket
-        self.__subscription_udp_socket = CommunicationProtocolSocket(subscriber_port, self.__subscriber_id)
+        self.__subscription_udp_socket = ReceivingCommunicationProtocolSocket(subscriber_port, self.__subscriber_id)
 
         # Subscribe to the message broker on the appropriate ports
         self.initiate_subscription()
