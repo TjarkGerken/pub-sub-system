@@ -38,7 +38,12 @@ class MessageBroker:
 
     def handle_subscription_message(self, data):
         message = None
-        if data:
+        addr = None
+        try:
+            subscription, addr = data.decode().split(";")
+        except ValueError:
+            logger.error(f"[MB_SUBSCRIPTION] | Invalid Subscription Message")
+        if data and addr:
             if data == "SUBSCRIBE_UV":
                 self.__subscribers_uv.append(addr)
                 message = "UV-Index ☀️"

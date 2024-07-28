@@ -35,9 +35,9 @@ class Subscriber:
         subscriptions = []
         address = ("127.0.0.1", self.__subscriber_port)
         if self.__subscriber_type == "U" or self.__subscriber_type == "B":
-            subscriptions.append(f"SUBSCRIBE_UV")
+            subscriptions.append(f"SUBSCRIBE_UV;{address}")
         if self.__subscriber_type == "S" or self.__subscriber_type == "B":
-            subscriptions.append(f"SUBSCRIBE_TEMP")
+            subscriptions.append(f"SUBSCRIBE_TEMP;{address}")
 
         for subscription in subscriptions:
             self.__subscription_socket.send_message(subscription, ("127.0.0.1", 6000))
