@@ -2,9 +2,9 @@ import queue
 import socket
 import threading
 
-from classes.CommunicationProtocol.CommunicationProtocolSocketBase import CommunicationProtocolSocketBase
+from classes.CommunicationProtocol.communication_protocol_socket_base import CommunicationProtocolSocketBase
 from utils.logger import logger
-from utils.utils import calculate_checksum
+from utils.utils import calculate_checksum, remove_if_exists
 
 
 class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
@@ -28,8 +28,10 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         :return: None
         """
+        logger.debug(f"Listening for incoming messages... (UID: {self.uid})")
         while True:
             message, addr = self.cp_socket.recvfrom(1024)
+            logger.debug(f"Message Received from {addr} (UID: {self.uid})")
             if message:
                 threading.Thread(target=self.handle_message, args=(message,)).start()
 
@@ -38,8 +40,9 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         calculated_checksum = calculate_checksum(data)
 
         if checksum != calculated_checksum:
-            logger.error(f"{self.uid} | Communication Complete")
-            return
+            logger.error(f"Checksums of packets do not match. Dropping packet (UID: {sdr_uid} | SQ No.: {sq_no} | ACK No.: {ack_no})")
+            logger.debug(f"Checksums do not match: {checksum} != {calculated_checksum} | Data: {data} (UID: {sdr_uid} | SQ No.: {sq_no} | ACK No.: {ack_no})")
+            return None  # TODO: Return Error Code
 
         sdr_port = int(sdr_port)
         rec_port = int(rec_port)
@@ -51,13 +54,14 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 self.stored_checksums[f"{sdr_uid}_{sq_no}"] = checksum
                 self.message_queue.put(data)
                 self.send((sdr_addr, sdr_port), "ACK", sq_no, 1, "ACK")
-                logger.debug(f"{self.uid} | Data Received ACK Send")
-
+                logger.debug(f"Data Received ACK Send (UID: {self.uid} | SQ No.: {sq_no} | ACK No.: 1)")
         elif ack_no == 2 and data == "ACK" and calculated_checksum in self.stored_checksums:
-            # self.stored_checksums.remove(calculated_checksum)
+            self.stored_checksums = remove_if_exists(self.stored_checksums, f"{sdr_uid}_{sq_no}")
             logger.debug(f"{self.uid} | RM CHECKSUM Communication Complete")
         elif ack_no == 2:
             logger.debug(f"{self.uid} | Communication Complete")
         else:
             logger.debug(f"{self.uid} | ACK already sent, skipping...")
+
+        return None  # TODO: Return Error Code
 

@@ -4,7 +4,7 @@ import socket
 import threading
 import time
 
-from classes.CommunicationProtocol.CommunicationProtocolSocketBase import CommunicationProtocolSocketBase
+from classes.CommunicationProtocol.communication_protocol_socket_base import CommunicationProtocolSocketBase
 from utils.logger import logger
 from configuration import RETRY_DURATION_IN_SECONDS, SECONDS_BETWEEN_RETRIES
 
@@ -44,7 +44,6 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         super().__init__(uid, port)
         self.sequence_number = 0
-        self.stored_checksums = {}
         self.message_queue = queue.Queue()
         self.__lock = threading.Lock()
 
@@ -73,17 +72,19 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         start_time = time.time()
         while time.time() - start_time < RETRY_DURATION_IN_SECONDS:
             self.send(address, "DATA", self.sequence_number, 0, data)
-            logger.debug(f"Message (Seq No. {self.sequence_number}) sent to {address}")
+            logger.debug(f"Message sent to {address} | (Seq No. {self.sequence_number} | ACK No.:0)")
+
             ready = select.select([self.cp_socket], [], [], SECONDS_BETWEEN_RETRIES)
             if ready[0]:
                 ack = self.cp_socket.recvfrom(1024)
                 if ack[0]:
-                    logger.debug(f"ACK received for message (Seq No. {self.sequence_number})")
+                    logger.debug(f"ACK received for message (SQ No.:{self.sequence_number} | ACK No.: 1)")
+                    logger.debug(f"Sending ACK for ACK (SQ No.:{self.sequence_number} | ACK No.: 2)")
                     self.send(address, "ACK", self.sequence_number, 2, "ACK")
                     break
 
         if time.time() - start_time >= RETRY_DURATION_IN_SECONDS:
-            logger.debug(f"Retries exhausted, message (Seq No. {self.sequence_number}) not sent")
+            logger.error(f"Retries exhausted, message (UID: {self.uid} | Seq No. {self.sequence_number}) not sent")
 
         self.sequence_number += 1
         return None

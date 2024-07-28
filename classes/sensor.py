@@ -5,8 +5,9 @@ import select
 import threading
 import time
 
-from classes.CommunicationProtocol.SendingCommunicationProtocolSocket import SendingCommunicationProtocolSocket
+from classes.CommunicationProtocol.sending_communication_protocol_socket import SendingCommunicationProtocolSocket
 from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS, RETRY_DURATION_IN_SECONDS
+from utils.logger import logger
 
 
 class Sensor:
@@ -25,7 +26,7 @@ class Sensor:
         # Socket
         self.__cp_socket = SendingCommunicationProtocolSocket(self.sensor_id, self.sensor_port)
 
-        print(f"[INFO] | {self.sensor_id} | Sensor initialized")
+        logger.info(f"[INFO] | {self.sensor_id} | Sensor initialized")
 
         # Start threads
         threading.Thread(target=self.run_sensor).start()

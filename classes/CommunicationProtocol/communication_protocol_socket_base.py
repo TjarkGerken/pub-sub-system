@@ -44,10 +44,13 @@ class CommunicationProtocolSocketBase:
 
         checksum = calculate_checksum(data)
         data = f"127.0.0.1 | {self.port} | {address[0]} | {address[1]} | {sq_no} | {ack_no} | {checksum} | {self.uid} | {data}".encode()
-        logger2.debug(f"{time.time()},{self.uid},{address[0]}:{address[1]},{sq_no},{ack_no}")
+        logger2.debug(f"{time.time()},{self.uid},{address[0]}:{address[1]},{sq_no},{ack_no}")  # TODO: Remove Line
 
         try:
             self.cp_socket.sendto(data, address)
-            logger.debug(f"{self.uid} | Data Sent to {address}")
-        except Exception as e:
-            logger.debug(f"Error sending data: {e}")
+            logger.debug(f"Data Sent to {address} (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no})")
+        except Exception as e:  # TODO: Genauere Exception abfangen
+            logger.critical(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no})")
+            logger.debug(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no}) | Error: {e})")
+
+        # TODO: Return status (OK or Error)?
