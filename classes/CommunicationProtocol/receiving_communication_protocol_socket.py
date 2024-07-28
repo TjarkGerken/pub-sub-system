@@ -60,7 +60,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         logger.info(f"Listening for incoming messages... (UID: {self.uid})")
         while True:
             message, addr = self.cp_socket.recvfrom(1024)
-            logger.debug(f"Message Received from {addr} (UID: {self.uid})")
+            logger.debug(f"{str('Message Recieved from ' + str(addr)).ljust(50)}(UID: {self.uid} | Message: {message})")
             if message:
                 threading.Thread(target=self.handle_message, args=(message,)).start()
 
@@ -70,9 +70,6 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         db_connection = sqlite3.connect(self.database_file)
         db_cursor = db_connection.cursor()
-
-        with open("logs/write-logs.csv", "a") as f:
-            f.write(f"{data}\n")
 
         try:
             db_cursor.execute("INSERT INTO MessageSocketQueue (Data) VALUES (?)", (data,))
@@ -92,17 +89,15 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         except sqlite3.OperationalError as e:
             logger.error(f"Error while deleting message from database: {e}")
 
-
-
     def handle_message(self, data):
         sdr_addr, sdr_port, rec_addr, rec_port, sq_no, ack_no, checksum, sdr_uid, data = data.decode().split(" | ")
         calculated_checksum = calculate_checksum(data)
 
         if checksum != calculated_checksum:
             logger.error(
-                f"Checksums of packets do not match. Dropping packet (UID: {sdr_uid} | SQ No.: {sq_no} | ACK No.: {ack_no})")
+                f"Checksums of packets do not match. Dropping packet (UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no})")
             logger.debug(
-                f"Checksums do not match: {checksum} != {calculated_checksum} | Data: {data} (UID: {sdr_uid} | SQ No.: {sq_no} | ACK No.: {ack_no})")
+                f"Checksums do not match: {checksum} != {calculated_checksum} | Data: {data} (UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no})")
             return None  # TODO: Return Error Code
 
         sdr_port = int(sdr_port)
@@ -112,17 +107,27 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         if ack_no == 0 and data != "ACK":
             with self.__lock:
+                logger.debug(f"{str('Received Message').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
+
                 self.stored_checksums[f"{sdr_uid}_{sq_no}"] = checksum
+
                 self.message_queue.put(data)
                 self.insert_message_into_db(data)
+
+                logger.debug(f"{str('Send Ack').ljust(50)}(UID: {self.uid} | SQ No. {sq_no} | ACK No. 1 | Data: {data})")
                 self.send((sdr_addr, sdr_port), "ACK", sq_no, 1, "ACK")
-                logger.debug(f"Data Received ACK Send (UID: {self.uid} | SQ No.: {sq_no} | ACK No.: 1)")
+
         elif ack_no == 2 and data == "ACK" and calculated_checksum in self.stored_checksums:
+            logger.debug(f"{str('Received ACK 2.1').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
             self.stored_checksums = remove_if_exists(self.stored_checksums, f"{sdr_uid}_{sq_no}")
-            logger.debug(f"{self.uid} | RM CHECKSUM Communication Complete")
+            # logger.debug(f"{self.uid} | RM CHECKSUM Communication Complete")
+
         elif ack_no == 2:
-            logger.debug(f"{self.uid} | Communication Complete")
+            logger.debug(f"{str('Received ACK 2.2').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
+            # logger.debug(f"{self.uid} | Communication Complete")
+
         else:
-            logger.debug(f"{self.uid} | ACK already sent, skipping...")
+            logger.debug(f"{str('Duplicate ACK received').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
+            # logger.debug(f"{self.uid} | ACK already sent, skipping...")
 
         return None  # TODO: Return Error Code
