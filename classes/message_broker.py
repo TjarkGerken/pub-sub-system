@@ -170,7 +170,6 @@ class MessageBroker:
     def distribute_message_to_list(self, broadcast_list, message):
         for subscriber in broadcast_list:
             self.subscriber_queues[subscriber]["queue"].put(message)
-        logger.critical(message)
         self.__sensor_udp_socket.delete_message_from_db(message)
         self.__sensor_udp_socket.message_queue.task_done()
 

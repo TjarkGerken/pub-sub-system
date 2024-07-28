@@ -15,7 +15,7 @@ SECONDS_BETWEEN_RETRIES = 45
 
 # Logging
 ## Severity level (choose from 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-LOGGING_LEVEL = "INFO"
+LOGGING_LEVEL = "DEBUG"
 ## Padding size for log messages
 LOGGING_PADDING = 65
 
