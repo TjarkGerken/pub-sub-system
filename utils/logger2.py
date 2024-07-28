@@ -1,8 +1,10 @@
 import logging
-from pathlib import Path
+import os
 
 from configuration import LOGGING_LEVEL
-from utils.log_formatter import ColorFormatter, BaseFormatter
+from pathlib import Path
+
+from utils.log_formatter import BaseFormatter
 
 LEVELS = {
     "DEBUG": logging.DEBUG,
@@ -18,28 +20,21 @@ if log_level == logging.NOTSET:
     log_level = logging.INFO
 
 # Create a custom logger
-logger = logging.getLogger(__name__)
+logger2 = logging.getLogger(__name__)
 
 # Set default level of logger
-logger.setLevel(log_level)
+logger2.setLevel(logging.DEBUG)
 
 # Create handlers
-## Create a console handler
-c_handler = logging.StreamHandler()
-c_handler.setLevel(log_level)
-
-## Create a file handler
+## Create a debug handler
 if not Path("./logs").is_dir():
     Path("./logs").mkdir()
 
-f_handler = logging.FileHandler('logs/log.log')
-f_handler.setLevel(log_level)
+temp_handler = logging.FileHandler("logs/testing.csv")
+temp_handler.setLevel(logging.DEBUG)
 
 # Create formatters and add it to handlers
-format = "%(asctime)s [%(custom_group)s]\t[%(thread)d]\t[%(levelname)s]\t%(message)s"
-c_handler.setFormatter(ColorFormatter(format))
-f_handler.setFormatter(BaseFormatter(format))
+temp_handler.setFormatter(BaseFormatter("%(message)s"))
 
 # Add handlers to the logger
-logger.addHandler(c_handler)
-logger.addHandler(f_handler)
+logger2.addHandler(temp_handler)
