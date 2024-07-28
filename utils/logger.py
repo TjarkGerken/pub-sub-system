@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from configuration import LOGGING_LEVEL
-from classes.log_formatter import BaseFormatter, ColorFormatter
+from utils.log_formatter import ColorFormatter, BaseFormatter
 
 LEVELS = {
     "DEBUG": logging.DEBUG,

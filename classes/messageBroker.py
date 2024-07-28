@@ -3,8 +3,8 @@ import queue
 import threading
 import time
 
-from classes.ReceivingCommunicationProtocolSocket import ReceivingCommunicationProtocolSocket
-from classes.SendingCommunicationProtocolSocket import SendingCommunicationProtocolSocket
+from classes.CommunicationProtocol.ReceivingCommunicationProtocolSocket import ReceivingCommunicationProtocolSocket
+from classes.CommunicationProtocol.SendingCommunicationProtocolSocket import SendingCommunicationProtocolSocket
 
 
 class MessageBroker:

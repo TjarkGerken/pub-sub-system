@@ -6,7 +6,7 @@ import threading
 import time
 from json import JSONDecodeError
 
-from classes.ReceivingCommunicationProtocolSocket import ReceivingCommunicationProtocolSocket
+from classes.CommunicationProtocol.ReceivingCommunicationProtocolSocket import ReceivingCommunicationProtocolSocket
 from configuration import RETRY_DURATION_IN_SECONDS
 
 

@@ -3,9 +3,9 @@ import socket
 import threading
 from typing import Literal
 
-from classes.utils import calculate_checksum
 from utils.logger import logger
 from utils.logger2 import logger2
+from utils.utils import calculate_checksum
 
 
 class CommunicationProtocolSocketBase:

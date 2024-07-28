@@ -4,8 +4,8 @@ import socket
 import threading
 import time
 
+from classes.CommunicationProtocol.CommunicationProtocolSocketBase import CommunicationProtocolSocketBase
 from utils.logger import logger
-from classes.CommunicationProtocolSocketBase import CommunicationProtocolSocketBase
 from configuration import RETRY_DURATION_IN_SECONDS, SECONDS_BETWEEN_RETRIES
 
 """
@@ -47,6 +47,7 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         self.stored_checksums = {}
         self.message_queue = queue.Queue()
         self.__lock = threading.Lock()
+
     """
     ack_event = threading.Event()
 
@@ -58,6 +59,7 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                     ack_event.set()
             except socket.timeout:
                 continue"""
+
     def send_message(self, data, address):
         """
         Sends a message to the specified address and waits for an acknowledgement.
@@ -82,7 +84,6 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         if time.time() - start_time >= RETRY_DURATION_IN_SECONDS:
             logger.debug(f"Retries exhausted, message (Seq No. {self.sequence_number}) not sent")
-
 
         self.sequence_number += 1
         return None

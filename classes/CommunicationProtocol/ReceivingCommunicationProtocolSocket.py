@@ -2,9 +2,9 @@ import queue
 import socket
 import threading
 
-from classes.CommunicationProtocolSocketBase import CommunicationProtocolSocketBase
-from classes.utils import calculate_checksum
+from classes.CommunicationProtocol.CommunicationProtocolSocketBase import CommunicationProtocolSocketBase
 from utils.logger import logger
+from utils.utils import calculate_checksum
 
 
 class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):

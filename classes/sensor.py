@@ -5,7 +5,7 @@ import select
 import threading
 import time
 
-from classes.SendingCommunicationProtocolSocket import SendingCommunicationProtocolSocket
+from classes.CommunicationProtocol.SendingCommunicationProtocolSocket import SendingCommunicationProtocolSocket
 from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS, RETRY_DURATION_IN_SECONDS
 
 
