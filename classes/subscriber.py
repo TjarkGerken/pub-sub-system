@@ -61,7 +61,7 @@ class Subscriber:
             if message["sensor_type"] == "U":
                 sensor_value = f"{message['uv_index']} UV in {message['location']}"
             elif message["sensor_type"] == "S":
-                sensor_value = f"{message['temperature']}  °C in {message['location']}"
+                sensor_value = f"{message['temperature']} °C in {message['location']}"
 
             logger.info(f"[{self.__subscriber_id}]\tSuccessfully received message: {sensor_value}")
             self.__subscription_udp_socket.delete_message_from_db(message)
