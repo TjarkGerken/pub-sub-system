@@ -27,7 +27,6 @@ logger2.setLevel(logging.DEBUG)
 
 # Create handlers
 ## Create a debug handler
-print(Path("./logs").absolute())
 if not Path("./logs").is_dir():
     Path("./logs").mkdir()
 

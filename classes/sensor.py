@@ -1,7 +1,6 @@
 import datetime
 import queue
 import random
-import select
 import threading
 import time
 

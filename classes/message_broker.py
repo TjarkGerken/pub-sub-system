@@ -9,7 +9,6 @@ from utils.logger import logger
 
 
 class MessageBroker:
-    __messageQueue = queue.Queue()
     __subscribers_uv = []
     __subscribers_temp = []
 
@@ -38,26 +37,27 @@ class MessageBroker:
 
     def handle_subscription_message(self, data):
         message = None
-        addr = None
         try:
-            subscription, addr = data.decode().split(";")
+            subscription, addr = data.split(";")
         except ValueError:
             logger.error(f"[MB_SUBSCRIPTION] | Invalid Subscription Message")
-        if data and addr:
-            if data == "SUBSCRIBE_UV":
+            subscription, addr = None, None
+
+        if subscription and addr:
+            if subscription == "SUBSCRIBE_UV":
                 self.__subscribers_uv.append(addr)
                 message = "UV-Index ☀️"
-            elif data == "SUBSCRIBE_TEMP":
+            elif subscription == "SUBSCRIBE_TEMP":
                 self.__subscribers_temp.append(addr)
                 message = "Temperature 🌡️️"
-            confirmation_message = "[MB_SUBSCRIPTION] | Successfully Subscribed to " + message
+            confirmation_message = f"[MB_SUBSCRIPTION] | Successfully Subscribed {addr} to {message}"
             logger.info(confirmation_message)
 
     def run_broadcast(self):
         while True:
-            if self.__messageQueue.empty():
+            if self.__sensor_udp_socket.message_queue.empty():
                 continue
-            message = self.__messageQueue.get()
+            message = self.__sensor_udp_socket.message_queue.get()
 
             message = ast.literal_eval(message)
             if message["sensor_type"] == "U":
@@ -65,14 +65,24 @@ class MessageBroker:
             elif message["sensor_type"] == "S":
                 self.broadcast_message_to_list(self.__subscribers_temp, message)
 
+            self.__sensor_udp_socket.message_queue.task_done()
+
     def broadcast_message(self, message, subscriber):
-        start_time = time.time()
-        while True:
-            self.__broadcast_udp_socket.send_message(str(message), subscriber)
+        self.__broadcast_udp_socket.send_message(str(message), subscriber)
 
     def broadcast_message_to_list(self, broadcast_list, message):
+        threads = []
         for subscriber in broadcast_list:
-            threading.Thread(target=self.broadcast_message, args=(message, subscriber)).start()
+            thread = threading.Thread(target=self.broadcast_message, args=(message, subscriber))
+            thread.start()
+            threads.append(thread)
+
+        while len(threads) != 0:
+            for thread in threads:
+                if not thread.isAlive():
+                    # remove item from subscriber queue
+                    # remove thread form list
+                    continue
 
 
 if __name__ == "__main__":
