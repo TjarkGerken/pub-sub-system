@@ -1,12 +1,9 @@
--- Create table for Messages - Socket Queue
-CREATE TABLE IF NOT EXISTS "Messages_Socket_Queue" (
-    "Message_ID" INTEGER PRIMARY KEY AUTOINCREMENT,
-    "Data" TEXT
-);
-
--- Create table for Topics
-CREATE TABLE IF NOT EXISTS "Topics" (
-    "Topic_Name" TEXT PRIMARY KEY
+CREATE TABLE IF NOT EXISTS Subscriber (
+    SubscriberID INTEGER PRIMARY KEY AUTOINCREMENT,
+    Address TEXT NOT NULL,
+    Port INT NOT NULL,
+    Topic TEXT NOT NULL,
+    UNIQUE (Address, Port, Topic)
 );
 
 CREATE TABLE IF NOT EXISTS MessagesToSend (
