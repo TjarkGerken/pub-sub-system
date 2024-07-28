@@ -3,8 +3,9 @@ import queue
 import threading
 import time
 
-from classes.CommunicationProtocol.ReceivingCommunicationProtocolSocket import ReceivingCommunicationProtocolSocket
-from classes.CommunicationProtocol.SendingCommunicationProtocolSocket import SendingCommunicationProtocolSocket
+from classes.CommunicationProtocol.receiving_communication_protocol_socket import ReceivingCommunicationProtocolSocket
+from classes.CommunicationProtocol.sending_communication_protocol_socket import SendingCommunicationProtocolSocket
+from utils.logger import logger
 
 
 class MessageBroker:
@@ -14,32 +15,28 @@ class MessageBroker:
 
     def __init__(self):
         self.__sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004)
-        self.__subscription_udp_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000)
+        self.__subscription_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000)
         self.__broadcast_udp_socket = SendingCommunicationProtocolSocket("MB_BROADCAST", 6200)
 
         threading.Thread(target=self.run_sensor_listener).start()
         threading.Thread(target=self.run_subscription_listener).start()
+        threading.Thread(target=self.run_subscription_handler).start()
         # threading.Thread(target=self.run_broadcast).start()
 
     def run_sensor_listener(self):
-        while True:
-            result = self.__sensor_udp_socket.listener()
-            if result:
-                self.__messageQueue.put(result)
+        self.__sensor_udp_socket.listener()
 
     def run_subscription_listener(self):
+        self.__subscription_socket.listener()
+
+    def run_subscription_handler(self):
         while True:
-            while not self.__sensor_udp_socket.message_queue.empty():
-                data = self.__sensor_udp_socket.message_queue.get()
-                # print(data)
-            """
-            while True:
-                result = self.__subscription_udp_socket.listen()
-                if result is not None:
-                    data, addr = result
-                    threading.Thread(target=self.handle_subscription_message, args=(data, addr)).start()
-            """
-    def handle_subscription_message(self, data, addr):
+            if self.__subscription_socket.message_queue.empty():
+                continue
+            result = self.__subscription_socket.message_queue.get()
+            threading.Thread(target=self.handle_subscription_message, args=(result,)).start()
+
+    def handle_subscription_message(self, data):
         message = None
         if data:
             if data == "SUBSCRIBE_UV":
@@ -48,8 +45,8 @@ class MessageBroker:
             elif data == "SUBSCRIBE_TEMP":
                 self.__subscribers_temp.append(addr)
                 message = "Temperature 🌡️️"
-            confirmation_message = "Successfully Subscribed to " + message
-            print(confirmation_message)
+            confirmation_message = "[MB_SUBSCRIPTION] | Successfully Subscribed to " + message
+            logger.info(confirmation_message)
 
     def run_broadcast(self):
         while True:
