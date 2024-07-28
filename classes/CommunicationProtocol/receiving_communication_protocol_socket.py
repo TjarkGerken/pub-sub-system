@@ -71,15 +71,13 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         db_connection = sqlite3.connect(self.database_file)
         db_cursor = db_connection.cursor()
 
-        with open("logs/write-logs.csv", "a") as f:
-            f.write(f"{data}\n")
-
         try:
             db_cursor.execute("INSERT INTO MessageSocketQueue (Data) VALUES (?)", (data,))
             db_connection.commit()
         except sqlite3.OperationalError as e:
             logger.error(f"Error while inserting message into database: {e}")
-
+        db_cursor.close()
+        db_connection.close()
         return None
 
     def delete_message_from_db(self, data):
@@ -91,7 +89,8 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
             db_connection.commit()
         except sqlite3.OperationalError as e:
             logger.error(f"Error while deleting message from database: {e}")
-
+        db_cursor.close()
+        db_connection.close()
 
 
     def handle_message(self, data):
