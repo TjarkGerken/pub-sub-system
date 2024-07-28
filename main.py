@@ -24,9 +24,9 @@ def main():
 
 
 if __name__ == '__main__':
-     main()
+    main()
 
-    #test_case_1()
+#test_case_1()
 
 # TODO: https://docs.python.org/3/howto/logging.html
 # TODO: Three Way Handshake

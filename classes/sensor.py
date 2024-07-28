@@ -147,6 +147,7 @@ class Sensor:
         """
         sensor_info = self.generate_sensor_info()
         data = {}
+
         if self.sensor_type == "U":
             uv_index = random.randint(0, 26)
             data = {
@@ -159,6 +160,12 @@ class Sensor:
             }
 
         data.update(sensor_info)
+        try:
+            db_cursor.execute("INSERT INTO MessagesToSend (Data) VALUES(?)", (json.dumps(data),))
+            db_connection.commit()
+        except sqlite3.OperationalError as e:
+            logger.error(f"Error while inserting into the database: {e}")
+
         self.__sensor_results.put(data)
 
     def run_sensor(self):

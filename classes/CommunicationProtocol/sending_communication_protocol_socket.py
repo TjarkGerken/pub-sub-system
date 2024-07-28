@@ -78,12 +78,17 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
             ready = select.select([self.cp_socket], [], [], SECONDS_BETWEEN_RETRIES)
             if ready[0]:
-                ack = self.cp_socket.recvfrom(1024)
-                if ack[0]:
-                    logger.debug(f"ACK received for message (SQ No.:{self.sequence_number} | ACK No.: 1)")
-                    logger.debug(f"Sending ACK for ACK (SQ No.:{self.sequence_number} | ACK No.: 2)")
-                    self.send(address, "ACK", self.sequence_number, 2, "ACK")
-                    break
+                try:
+                    ack = self.cp_socket.recvfrom(1024)
+                    if ack[0]:
+                        logger.debug(f"ACK received for message (SQ No.: {self.sequence_number} | ACK No.: 1)")
+                        logger.debug(f"Sending ACK for ACK (SQ No.: {self.sequence_number} | ACK No.: 2)")
+                        self.send(address, "ACK", self.sequence_number, 2, "ACK")
+                        ack_received = True
+                except ConnectionResetError as e:
+                    logger.critical("Connection reset error")
+                except Exception as e:  # TODO: Specify exception
+                    logger.critical("Error sending ACK_NO:2")
 
         if not ack_received:
             logger.error(f"Retries exhausted, message (UID: {self.uid} | Seq No. {self.sequence_number}) not sent")

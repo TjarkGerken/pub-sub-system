@@ -10,8 +10,6 @@ from utils.logger import logger
 
 
 class Subscriber:
-    __messageQueue = queue.Queue()
-
     def __init__(self, subscriber_port: int, subscriber_type: str):
         if subscriber_type not in ["U", "S", "B"]:
             raise ValueError("Sensor  type must be either 'U' or 'S' or 'B'")
@@ -19,16 +17,19 @@ class Subscriber:
         self.__subscriber_port = subscriber_port
         self.__subscriber_type = subscriber_type
         self.__subscriber_id = f"SUBSCRIBER_{subscriber_type}_{subscriber_port}"
+        self.__database_file = f"database/{self.__subscriber_id}.db"
 
         # Socket
         self.__subscription_socket = SendingCommunicationProtocolSocket(self.__subscriber_id, subscriber_port + 1)
-        self.__subscription_udp_socket = ReceivingCommunicationProtocolSocket(self.__subscriber_id, subscriber_port)
+        self.__subscription_udp_socket = ReceivingCommunicationProtocolSocket(self.__subscriber_id, subscriber_port, self.__database_file)
 
         # Subscribe to the message broker on the appropriate ports
         self.initiate_subscription()
 
-        threading.Thread(target=self.run_subscriber).start()
         threading.Thread(target=self.run_logger).start()
+        threading.Thread(target=self.__subscription_udp_socket.listener).start()
+
+        logger.info("Subscriber Started")
 
     def initiate_subscription(self):
         # Send subscription request to the message broker based on the type
@@ -43,42 +44,28 @@ class Subscriber:
         for subscription in subscriptions:
             self.__subscription_socket.send_message(subscription, ("127.0.0.1", 6000))
 
-    def run_subscriber(self):
-        # For all the ports in the subscriptions list, listen for the messages
-        # If a message is received, put it in the messageQueue
-        while True:
-            # result = self.__subscription_udp_socket.listener()
-            result = None
-            if result is not None:
-                data, addr = result
-                handle_connection_thread = threading.Thread(target=self.handle_incoming_message, args=(data, addr))
-                handle_connection_thread.start()
-
     def run_logger(self):
         sensor_value = ""
         while True:
-            if self.__messageQueue.empty():
+            if self.__subscription_udp_socket.message_queue.empty():
                 continue
 
-            message = self.__messageQueue.get()
-            message = message.replace("'", '"')
-
+            message = self.__subscription_udp_socket.message_queue.get()
             try:
+                message = message.replace("'", '"')
                 message = json.loads(message)
             except JSONDecodeError as e:
                 logger.critical(f"[ERROR] | {self.__subscriber_id} | {e} | {message}")
                 continue
 
             if message["sensor_type"] == "U":
-                sensor_value = f"☀️  {message['uv_index']} UV in {message['location']}"
+                sensor_value = f"{message['uv_index']} UV in {message['location']}"
             elif message["sensor_type"] == "S":
-                sensor_value = f"🌡️  {message['temperature']}  °C in {message['location']}"
+                sensor_value = f"{message['temperature']}  °C in {message['location']}"
 
             logger.info(f"[SUCCESS] | {self.__subscriber_id} | {sensor_value}")
+            self.__subscription_udp_socket.delete_message_from_db(message)
             time.sleep(0.1)  # TODO: use Threading?
-
-    def handle_incoming_message(self, data, addr):
-        self.__messageQueue.put(data)
 
 
 if __name__ == "__main__":
