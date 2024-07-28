@@ -15,6 +15,7 @@ class Subscriber:
     def __init__(self, subscriber_port: int, subscriber_type: str):
         if subscriber_type not in ["U", "S", "B"]:
             raise ValueError("Sensor  type must be either 'U' or 'S' or 'B'")
+
         self.__subscriber_port = subscriber_port
         self.__subscriber_type = subscriber_type
         self.__subscriber_id = f"SUBSCRIBER_{subscriber_type}_{subscriber_port}"

@@ -70,9 +70,11 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         :return: None
         """
         start_time = time.time()
-        while time.time() - start_time < RETRY_DURATION_IN_SECONDS:
+        ack_received = False
+
+        while time.time() - start_time < RETRY_DURATION_IN_SECONDS and not ack_received:
             self.send(address, "DATA", self.sequence_number, 0, data)
-            logger.debug(f"Message sent to {address} | (Seq No. {self.sequence_number} | ACK No.:0)")
+            logger.debug(f"Message sent to {address} | (Seq No.: {self.sequence_number} | ACK No.: 0)")
 
             ready = select.select([self.cp_socket], [], [], SECONDS_BETWEEN_RETRIES)
             if ready[0]:
@@ -83,7 +85,7 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                     self.send(address, "ACK", self.sequence_number, 2, "ACK")
                     break
 
-        if time.time() - start_time >= RETRY_DURATION_IN_SECONDS:
+        if not ack_received:
             logger.error(f"Retries exhausted, message (UID: {self.uid} | Seq No. {self.sequence_number}) not sent")
 
         self.sequence_number += 1

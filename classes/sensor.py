@@ -1,17 +1,57 @@
+"""
+This module defines the Sensor class, which represents an UV or temperature sensor.
+The Sensor class will generate artificial sensor data, store it in a database and send it to the message broker.
+"""
+
+import ast
 import datetime
+import json
 import queue
 import random
+import sqlite3
 import threading
 import time
 
 from classes.CommunicationProtocol.sending_communication_protocol_socket import SendingCommunicationProtocolSocket
-from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS, RETRY_DURATION_IN_SECONDS
+from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS
 from utils.logger import logger
 
 
 class Sensor:
+    """
+    A class to represent a UV or temperature sensor
 
+    Attributes
+    ----------
+    sensor_id : str
+        The unique identifier of the sensor
+    sensor_port : int
+        The port number the sensor is listening on
+    sensor_type : str
+        The type of the sensor, either 'U' for UV or 'S' for temperature
+    location : str
+        The location of the sensor
+    database_file : str
+        The path to the SQLite database file for the sensor
+    __sensor_results : queue.Queue
+        A queue to store the sensor results before they are sent to the Message broker
+    __cp_socket : SendingCommunicationProtocolSocket
+        The socket to send messages to the Message broker
+    __lock : threading.Lock
+        A lock to avoid conflicts when accessing the sensor results queue
+    """
     def __init__(self, sensor_port: int, sensor_type: str, location: str):
+        """
+        Initializes the sensor with the given port, type and location
+
+        :param sensor_port: The port number of the sensor
+        :param sensor_type: The type of the sensor ('U' for UV, 'S' for temperature)
+        :param location: The location of the sensor
+
+        :raise ValueError: If the sensor type is neither 'U' nor 'S'
+
+        :return: Sensor object
+        """
         if sensor_type not in ["U", "S"]:
             raise ValueError("Sensor type must be either 'U' or 'S'")
 
@@ -22,16 +62,72 @@ class Sensor:
         self.location = location
         self.__sensor_results = queue.Queue()
         self.__lock = threading.Lock
-        # Socket
+
+        # Initialize the database for the sensor
+        self.database_file = f"database/{self.sensor_id}.db"
+        self.init_db()
+
+        # Initialize socket to send messages to the Message broker
         self.__cp_socket = SendingCommunicationProtocolSocket(self.sensor_id, self.sensor_port)
+        logger.info(
+            f"Sensor initialized (UID: {self.sensor_id} | Type: {self.sensor_type} | Location: {self.location})"
+        )
 
-        logger.info(f"[INFO] | {self.sensor_id} | Sensor initialized")
-
-        # Start threads
+        # Start threads to generate sensor data and send messages when data is available
         threading.Thread(target=self.run_sensor).start()
         threading.Thread(target=self.run_messenger).start()
 
+    def init_db(self):
+        """
+        Initializes the database for the sensor. If the database does not exist, it will be created and executes the
+        DDL-statements. Finally, it will pre-fill the queue with messages that weren't sent yet
+
+        :return: None
+        """
+        # Create the database if it does not exist and connect to it
+        db_connection = sqlite3.connect(self.database_file)
+        db_cursor = db_connection.cursor()
+
+        # Execute DDL script to create tables if not already exist
+        with open("database/ddl_sensor.sql", "r") as ddl_file:
+            db_cursor.executescript(ddl_file.read())
+            db_connection.commit()
+
+        logger.debug(f"Initialized database connection (UID: {self.sensor_id})")
+
+        # Prefill queue with messages that weren't sent yet
+        self.prefill_queue(db_connection, db_cursor)
+
+        # Close the database connection and cleanup
+        db_cursor.close()
+        db_connection.close()
+
+    def prefill_queue(self, db_connection: sqlite3.Connection, db_cursor: sqlite3.Cursor) -> None:
+        """
+        Prefill the sensor results queue with messages that weren't sent yet. This is done by fetching all messages from
+        the `MessagesToSend` table in the sensor's database and converts them from their string representation to a
+        dictionary. The dictionary is then put into the queue object.
+
+        :param db_connection: The (already opened) SQLite database connection.
+        :param db_cursor: The (already initialized) SQLite database cursor
+        :return: None
+        """
+        # Fetch all messages from the database ordered by oldest first
+        messages_to_send = db_cursor.execute("SELECT * FROM MessagesToSend ORDER BY MessageID").fetchall()
+
+        # Convert the string representation of the message to a dictionary and put it into the queue
+        for message in messages_to_send:
+            data = ast.literal_eval(message[1])
+            self.__sensor_results.put(data)
+
+        return None
+
     def generate_sensor_info(self):
+        """
+        Generate basic sensor information like a sensor id, the current datetime, sensor type and location
+
+        :return: A dictionary containing the sensor information
+        """
         return {
             "sensor_id": self.sensor_id,
             "datetime": str(datetime.datetime.now().isoformat()),
@@ -39,7 +135,16 @@ class Sensor:
             "location": self.location
         }
 
-    def generate_sensor_result(self):
+    def generate_sensor_result(self, db_connection, db_cursor):
+        """
+        Generates artificial sensor results based on the sensor type (UV index or temperature), stores it in the
+        database and puts it into the sensor results queue.
+
+        :param db_connection: The (already opened) SQLite database connection
+        :param db_cursor: The (already initialized) SQLite database cursor
+
+        :return: None
+        """
         sensor_info = self.generate_sensor_info()
         data = {}
         if self.sensor_type == "U":
@@ -57,19 +162,37 @@ class Sensor:
         self.__sensor_results.put(data)
 
     def run_sensor(self):
+        db_connection = sqlite3.connect(self.database_file)
+        db_cursor = db_connection.cursor()
+
         while True:
-            self.generate_sensor_result()
+            self.generate_sensor_result(db_connection, db_cursor)
             sleep_time = random.randint(1, MAX_SENSOR_INTERVAL_IN_SECONDS)
-            time.sleep(sleep_time)
+            time.sleep(sleep_time)  # TODO: Threading?
+
+        db_cursor.close()
+        db_connection.close()
 
     def run_messenger(self):
+        db_connection = sqlite3.connect(self.database_file)
+        db_cursor = db_connection.cursor()
+
         while True:
             if self.__sensor_results.empty():
                 continue
 
             sensor_result = self.__sensor_results.get()
-            message = str(sensor_result)
+            message = json.dumps(sensor_result)
+
             self.__cp_socket.send_message(message, ("127.0.0.1", 5004))
+
+            # TODO: Documentation - When message could not be sent, it should be deleted anyway \
+            #  --> If the function is over, either the threshold was exceeded or the message was sent successfully
+            db_connection.execute("DELETE FROM MessagesToSend WHERE Data = ?", (message,))
+            db_connection.commit()
+
+        db_cursor.close()
+        db_connection.close()
 
 
 if __name__ == "__main__":

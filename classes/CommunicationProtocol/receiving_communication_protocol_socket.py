@@ -15,6 +15,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         :param uid: Unique identifier for the instance using the socket (Sensor, MB, Subscriber).
         :param port: Port number to bind the socket.
+        :param database_file: Path to the SQLite database file to store messages.
         :return: None
         """
         super().__init__(uid, port)
@@ -22,13 +23,16 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         self.message_queue = queue.Queue()
         self.__lock = threading.Lock()
 
+        if self.database_file:
+            self.init_db()
+
     def listener(self):
         """
         Listens for incoming messages and starts a new thread to handle each message.
 
         :return: None
         """
-        logger.debug(f"Listening for incoming messages... (UID: {self.uid})")
+        logger.info(f"Listening for incoming messages... (UID: {self.uid})")
         while True:
             message, addr = self.cp_socket.recvfrom(1024)
             logger.debug(f"Message Received from {addr} (UID: {self.uid})")

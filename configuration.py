@@ -11,7 +11,7 @@ Configuration options:
 ## Maximum duration to wait for a message to be sent successfully
 RETRY_DURATION_IN_SECONDS = 300
 ## Duration to wait before retrying to send a failed request in secnods
-SECONDS_BETWEEN_RETRIES = 2
+SECONDS_BETWEEN_RETRIES = 45
 
 # Logging
 ## Severity level (choose from 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')

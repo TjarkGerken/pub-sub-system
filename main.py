@@ -8,11 +8,11 @@ def main():
     mb = MessageBroker()
 
     for i in range(1, 2):
-        #sensor = Sensor(sensor_port=5100 + i, sensor_type="U" if i % 2 == 0 else "S",
-         #               location="BRM" if i % 2 == 0 else "MHN")
+        sensor = Sensor(sensor_port=5100 + i, sensor_type="U" if i % 2 == 0 else "S",
+                        location="BRM" if i % 2 == 0 else "MHN")
 
-        subscriber = Subscriber(subscriber_port=6200 + i+1,
-                               subscriber_type="B") #  if i % 3 == 0 else "U" if i % 3 == 1 else "S"
+        subscriber = Subscriber(subscriber_port=6200 + i + 1,
+                                subscriber_type="B")  # if i % 3 == 0 else "U" if i % 3 == 1 else "S")
 
 
 #def test_case_1():
