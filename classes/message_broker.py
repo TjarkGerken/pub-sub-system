@@ -37,6 +37,16 @@ class MessageBroker:
         self.__database_file = "database/message_broker.db"
         self.database_init()
 
+        # Setup Sockets
+        self.__sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004, self.__database_file)
+        self.__subscription_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000)
+        self.__broadcast_udp_socket = SendingCommunicationProtocolSocket("MB_BROADCAST", 6200)
+
+        threading.Thread(target=self.run_sensor_listener).start()
+        threading.Thread(target=self.run_subscription_listener).start()
+        threading.Thread(target=self.run_subscription_handler).start()
+        threading.Thread(target=self.run_broadcast).start()
+
         # TODO: Key: SensorId, Value: Queue
         # Wenn neue Nachricht beim MB ankommt, dann wird geschaut welches Topic, dann schauen welcher Subscriber
         # => über Subscriber ID auf Queue zugreifen wo Nachrichten gespeichert werden -> queue.put
@@ -68,12 +78,34 @@ class MessageBroker:
 
         return None
 
-    def prefill_queue(self, db_connection, db_cursor):
+    def prefill_subscriber_queues(self, subscriber_id, addr):
+        with self.__lock:
+            db_connection = sqlite3.connect(self.__database_file, )
+            db_cursor = db_connection.cursor()
+
+            subscriber_messages = db_cursor.execute(
+                "SELECT Data FROM main.MessagesToSend WHERE SubscriberID = ? ORDER BY MessageID",
+                (subscriber_id,)).fetchall()
+
+            db_cursor.close()
+            db_connection.close()
+
+        for message in subscriber_messages:
+            self.subscriber_queues[addr]["queue"].put(message[0])
+
+        return None
+
+    def prefill_queue(self):
         # Get all subscriptions from the database
-        db_cursor.execute("SELECT * FROM Subscriber")
-        subscribers = db_cursor.fetchall()
-        db_connection.close()
-        db_cursor.close()
+        with self.__lock:
+            db_connection = sqlite3.connect(self.__database_file)
+            db_cursor = db_connection.cursor()
+
+            db_cursor.execute("SELECT * FROM Subscriber")
+            subscribers = db_cursor.fetchall()
+
+            db_cursor.close()
+            db_connection.close()
 
         for subscriber in subscribers:
             address, port, topic = subscriber[1], subscriber[2], subscriber[3]
@@ -85,14 +117,13 @@ class MessageBroker:
 
             self.subscriber_queues[addr] = {
                 "queue": queue.Queue(),
-                "thread": threading.Thread(target=self.broadcast_message, args=(addr,))
+                "thread": StoppableThread(target=self.broadcast_message, args=(addr,))
             }
-
+            self.prefill_subscriber_queues(subscriber[0], addr)
             self.subscriber_queues[addr]["thread"].start()
             logger.info(f"[MB_SUBSCRIPTION] | Successfully Resubscribed {addr} to {topic}")
 
         return None
-
 
     def run_sensor_listener(self):
         self.__sensor_udp_socket.listener()
@@ -197,23 +228,74 @@ class MessageBroker:
             message = ast.literal_eval(message)
 
             if message["sensor_type"] == "U":
-                self.distribute_message_to_list(self.__subscribers_uv, message)
+                self.distribute_message_to_list(self.__subscribers_uv, message, "UV")
             elif message["sensor_type"] == "S":
-                self.distribute_message_to_list(self.__subscribers_temp, message)
+                self.distribute_message_to_list(self.__subscribers_temp, message, "TEMP")
 
     def broadcast_message(self, subscriber):
-        while True:
+        thread = self.subscriber_queues[subscriber]["thread"]
+        while not thread.stopped():
+            if not self.init_done:
+                continue
+
             subscriber_queue = self.subscriber_queues[subscriber]["queue"]
             if not subscriber_queue.empty():
                 message = subscriber_queue.get()
+                # TODO: If message == Type U => TOPIC => UV ELSE TOPIC = TEMP
+                topic = ""
+                message = ast.literal_eval(message)
+                if message["sensor_type"] == "S":
+                    topic = "TEMP"
+                elif message["sensor_type"] == "U":
+                    topic = "UV"
                 self.__broadcast_udp_socket.send_message(json.dumps(message), subscriber)
+                self.delete_from_db_messages_to_send(json.dumps(message), subscriber, topic)
                 subscriber_queue.task_done()
 
-    def distribute_message_to_list(self, broadcast_list, message):
+    def distribute_message_to_list(self, broadcast_list, message, topic):
         for subscriber in broadcast_list:
-            self.subscriber_queues[subscriber]["queue"].put(message)
+            self.subscriber_queues[subscriber]["queue"].put(json.dumps(message))
+            self.insert_to_db_messages_to_send(message, subscriber, topic)
         self.__sensor_udp_socket.delete_message_from_db(message)
         self.__sensor_udp_socket.message_queue.task_done()
+
+    def delete_from_db_messages_to_send(self, data, subscriber, topic):
+        with self.__lock:
+            db_connection = sqlite3.connect(self.__database_file)
+            db_cursor = db_connection.cursor()
+
+            subscriber_id = db_cursor.execute(
+                "SELECT SubscriberID FROM Subscriber WHERE Address = ? AND Port = ? AND Topic = ?",
+                (subscriber[0], subscriber[1], topic)).fetchone()
+
+            if subscriber_id:
+                subscriber_id = subscriber_id[0]
+                db_cursor.execute("DELETE FROM MessagesToSend WHERE SubscriberID = ? AND Data = ?",
+                                  (subscriber_id, data))
+                db_connection.commit()
+
+            db_cursor.close()
+            db_connection.close()
+
+    def insert_to_db_messages_to_send(self, data: str, subscriber: str, topic: str):
+        with self.__lock:
+            db_connection = sqlite3.connect(self.__database_file)
+            db_cursor = db_connection.cursor()
+            subscriber_id = db_cursor.execute(
+                "SELECT SubscriberID FROM Subscriber WHERE Address = ? AND Port = ? AND Topic = ?",
+                (subscriber[0], subscriber[1], topic)).fetchone()
+            if subscriber_id:
+                subscriber_id = subscriber_id[0]
+                try:
+                    db_cursor.execute("INSERT INTO MessagesToSend (SubscriberId, Data) VALUES (?, ?)",
+                                      (subscriber_id, json.dumps(data)))
+                    db_connection.commit()
+                except sqlite3.IntegrityError as e:
+                    logger.debug(f"Message {data} is already in the database")
+
+            db_cursor.close()
+            db_connection.close()
+
 
 if __name__ == "__main__":
     MessageBroker()
