@@ -4,7 +4,6 @@ import threading
 from typing import Literal
 
 from utils.logger import logger
-from utils.logger2 import logger2
 from utils.utils import calculate_checksum
 
 
@@ -44,7 +43,6 @@ class CommunicationProtocolSocketBase:
 
         checksum = calculate_checksum(data)
         data = f"127.0.0.1 | {self.port} | {address[0]} | {address[1]} | {sq_no} | {ack_no} | {checksum} | {self.uid} | {data}".encode()
-        logger2.debug(f"{time.time()},{self.uid},{address[0]}:{address[1]},{sq_no},{ack_no}")  # TODO: Remove Line
 
         try:
             # logger.debug(f"{str('Send Data to ' + str(address)).ljust(50)}(UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} | Data ka: {data})")  # TODO: Redundant with log message in sending communication protocol socket
