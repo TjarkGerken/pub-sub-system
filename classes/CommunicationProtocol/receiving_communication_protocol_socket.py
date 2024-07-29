@@ -70,45 +70,33 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         if self.database_file is None:
             return None
 
-        db_connection = sqlite3.connect(self.database_file)
-        db_cursor = db_connection.cursor()
-
         try:
             with self.__lock:
+                db_connection = sqlite3.connect(self.database_file)
+                db_cursor = db_connection.cursor()
                 db_cursor.execute("INSERT INTO MessageSocketQueue (Data) VALUES (?)", (data,))
                 db_connection.commit()
+                db_cursor.close()
+                db_connection.close()
         except sqlite3.OperationalError as e:
             logger.error(f"Error while inserting message into database: {e}")
-        db_cursor.close()
-        db_connection.close()
+
         return None
 
     def delete_message_from_db(self, data):
         sqlite3.threadsafety = 2
-        db_connection = sqlite3.connect(self.database_file, check_same_thread=False)
-        db_cursor = db_connection.cursor()
 
         logger.debug(f"Deleting message from database (UID: {self.uid} | Data: {data})")
         serialized_data = json.dumps(data)
         counter = 0
-        while True:
-            with self.__lock:
-                items = db_cursor.execute("SELECT * FROM MessageSocketQueue WHERE Data = ?",
-                                          (serialized_data,)).fetchall()
 
-            if len(items) < 1:
-                break
-
-            if counter > 0:
-                logger.critical(
-                    f"Message occurred more than once in the database, deleting all affected instances | Counter: {counter}")
-
-            with self.__lock:
-                db_cursor.execute("DELETE FROM MessageSocketQueue WHERE Data = ?", (serialized_data,))
-                db_connection.commit()
-
-        db_cursor.close()
-        db_connection.close()
+        with self.__lock:
+            db_connection = sqlite3.connect(self.database_file, check_same_thread=False)
+            db_cursor = db_connection.cursor()
+            db_cursor.execute("DELETE FROM MessageSocketQueue WHERE Data = ?", (serialized_data,))
+            db_connection.commit()
+            db_cursor.close()
+            db_connection.close()
 
     def handle_message(self, data):
         sdr_addr, sdr_port, rec_addr, rec_port, sq_no, ack_no, checksum, sdr_uid, data = data.decode().split(" | ")
