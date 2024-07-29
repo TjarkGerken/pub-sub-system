@@ -74,8 +74,10 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
             with self.__lock:
                 db_connection = sqlite3.connect(self.database_file)
                 db_cursor = db_connection.cursor()
+
                 db_cursor.execute("INSERT INTO MessageSocketQueue (Data) VALUES (?)", (data,))
                 db_connection.commit()
+
                 db_cursor.close()
                 db_connection.close()
         except sqlite3.OperationalError as e:
@@ -93,8 +95,10 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         with self.__lock:
             db_connection = sqlite3.connect(self.database_file, check_same_thread=False)
             db_cursor = db_connection.cursor()
+
             db_cursor.execute("DELETE FROM MessageSocketQueue WHERE Data = ?", (serialized_data,))
             db_connection.commit()
+
             db_cursor.close()
             db_connection.close()
 
