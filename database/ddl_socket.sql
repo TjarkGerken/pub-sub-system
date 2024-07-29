@@ -1,4 +1,4 @@
 CREATE TABLE IF NOT EXISTS MessageSocketQueue (
     MessageID INTEGER PRIMARY KEY AUTOINCREMENT,
-    "Data" TEXT
+    Data TEXT
 );

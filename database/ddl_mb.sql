@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS Subscriber (
 );
 
 CREATE TABLE IF NOT EXISTS MessagesToSend (
+    MessageID INTEGER PRIMARY KEY AUTOINCREMENT,
     SubscriberID INTEGER NOT NULL,
     Data TEXT NOT NULL,
     FOREIGN KEY (SubscriberID) REFERENCES Subscriber(SubscriberID)
