@@ -8,7 +8,7 @@ class BaseFormatter(logging.Formatter):
     Custom logging formatter that extends the standard logging.Formatter class
 
     Attributes:
-        __num_digits : int
+        _num_digits : int
             The number of digits used for padding the custom group string
     """
     def __init__(self, fmt):
