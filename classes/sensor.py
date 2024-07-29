@@ -191,6 +191,7 @@ class Sensor:
             sensor_result = self.__sensor_results.get()
             message = json.dumps(sensor_result)
 
+            logger.info(f"[{self.sensor_id}] Send Message: {message}")
             self.__cp_socket.send_message(message, ("127.0.0.1", 5004))
 
             # TODO: Documentation - When message could not be sent, it should be deleted anyway \

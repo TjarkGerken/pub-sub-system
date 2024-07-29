@@ -65,6 +65,8 @@ class MessageBroker:
         # Get all subscriptions from the database
         db_cursor.execute("SELECT * FROM Subscriber")
         subscribers = db_cursor.fetchall()
+        db_connection.close()
+        db_cursor.close()
 
         for subscriber in subscribers:
             address, port, topic = subscriber["Address"], int(subscriber["Port"]), subscriber["Topic"]
@@ -82,8 +84,8 @@ class MessageBroker:
             self.subscriber_queues[addr]["thread"].start()
             logger.info(f"[MB_SUBSCRIPTION] | Successfully Resubscribed {addr} to {topic}")
 
-        db_connection.close()
-        db_cursor.close()
+        return None
+
 
     def run_sensor_listener(self):
         self.__sensor_udp_socket.listener()
