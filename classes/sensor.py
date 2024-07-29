@@ -61,7 +61,7 @@ class Sensor:
         self.sensor_type = sensor_type
         self.location = location
         self.__sensor_results = queue.Queue()
-        self.__lock = threading.Lock
+        self.__lock = threading.Lock()
 
         # Initialize the database for the sensor
         self.database_file = f"database/{self.sensor_id}.db"
@@ -137,6 +137,7 @@ class Sensor:
 
     def generate_sensor_result(self, db_connection, db_cursor):
         """
+        TODO: UPDATE DOCSTRING
         Generates artificial sensor results based on the sensor type (UV index or temperature), stores it in the
         database and puts it into the sensor results queue.
 
@@ -145,8 +146,8 @@ class Sensor:
 
         :return: None
         """
-        sensor_info = self.generate_sensor_info()
         data = {}
+        sensor_info = self.generate_sensor_info()
 
         if self.sensor_type == "U":
             uv_index = random.randint(0, 26)
@@ -168,6 +169,8 @@ class Sensor:
 
         self.__sensor_results.put(data)
 
+        return None
+
     def run_sensor(self):
         db_connection = sqlite3.connect(self.database_file)
         db_cursor = db_connection.cursor()
@@ -176,6 +179,8 @@ class Sensor:
             self.generate_sensor_result(db_connection, db_cursor)
             sleep_time = random.randint(1, MAX_SENSOR_INTERVAL_IN_SECONDS)
             time.sleep(sleep_time)  # TODO: Threading?
+
+        return None
 
         db_cursor.close()
         db_connection.close()
