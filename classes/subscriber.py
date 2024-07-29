@@ -69,4 +69,4 @@ class Subscriber:
 
 
 if __name__ == "__main__":
-    Subscriber(7002, "B")
+    Subscriber(6202, "B")

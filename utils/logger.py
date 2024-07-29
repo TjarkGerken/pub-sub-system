@@ -12,7 +12,7 @@ LEVELS = {
     "CRITICAL": logging.CRITICAL
 }
 
-log_level = LEVELS.get(LOGGING_LEVEL, logging.NOTSET)
+log_level = LEVELS.get(str(LOGGING_LEVEL).upper(), logging.NOTSET)
 if log_level == logging.NOTSET:
     print("Invalid logging level. Defaulting to INFO")
     log_level = logging.INFO

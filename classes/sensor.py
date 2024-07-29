@@ -40,6 +40,7 @@ class Sensor:
     __lock : threading.Lock
         A lock to avoid conflicts when accessing the sensor results queue
     """
+
     def __init__(self, sensor_port: int, sensor_type: str, location: str):
         """
         Initializes the sensor with the given port, type and location
@@ -61,7 +62,7 @@ class Sensor:
         self.sensor_type = sensor_type
         self.location = location
         self.__sensor_results = queue.Queue()
-        self.__lock = threading.Lock
+        self.__lock = threading.Lock()
 
         # Initialize the database for the sensor
         self.database_file = f"database/{self.sensor_id}.db"
@@ -85,25 +86,28 @@ class Sensor:
         :return: None
         """
         # Create the database if it does not exist and connect to it
-        db_connection = sqlite3.connect(self.database_file)
-        db_cursor = db_connection.cursor()
+        with self.__lock:
+            db_connection = sqlite3.connect(self.database_file)
+            db_cursor = db_connection.cursor()
 
-        # Execute DDL script to create tables if not already exist
-        with open("database/ddl_sensor.sql", "r") as ddl_file:
-            db_cursor.executescript(ddl_file.read())
-            db_connection.commit()
+            # Execute DDL script to create tables if not already exist
+            with open("database/ddl_sensor.sql", "r") as ddl_file:
+                db_cursor.executescript(ddl_file.read())
+                db_connection.commit()
 
-        logger.debug(f"Initialized database connection (UID: {self.sensor_id})")
+            db_cursor.close()
+            db_connection.close()
 
         # Prefill queue with messages that weren't sent yet
-        self.prefill_queue(db_connection, db_cursor)
+        self.prefill_queue()
 
         # Close the database connection and cleanup
-        db_cursor.close()
-        db_connection.close()
+        logger.debug(f"Initialized database connection (UID: {self.sensor_id})")
 
-    def prefill_queue(self, db_connection: sqlite3.Connection, db_cursor: sqlite3.Cursor) -> None:
+
+    def prefill_queue(self) -> None:
         """
+        TODO: UPDATE DOCSTRING
         Prefill the sensor results queue with messages that weren't sent yet. This is done by fetching all messages from
         the `MessagesToSend` table in the sensor's database and converts them from their string representation to a
         dictionary. The dictionary is then put into the queue object.
@@ -113,7 +117,15 @@ class Sensor:
         :return: None
         """
         # Fetch all messages from the database ordered by oldest first
-        messages_to_send = db_cursor.execute("SELECT * FROM MessagesToSend ORDER BY MessageID").fetchall()
+
+        with self.__lock:
+            db_connection = sqlite3.connect(self.database_file)
+            db_cursor = db_connection.cursor()
+
+            messages_to_send = db_cursor.execute("SELECT * FROM MessagesToSend ORDER BY MessageID").fetchall()
+
+            db_cursor.close()
+            db_connection.close()
 
         # Convert the string representation of the message to a dictionary and put it into the queue
         for message in messages_to_send:
@@ -135,8 +147,9 @@ class Sensor:
             "location": self.location
         }
 
-    def generate_sensor_result(self, db_connection, db_cursor):
+    def generate_sensor_result(self):
         """
+        TODO: UPDATE DOCSTRING
         Generates artificial sensor results based on the sensor type (UV index or temperature), stores it in the
         database and puts it into the sensor results queue.
 
@@ -145,8 +158,8 @@ class Sensor:
 
         :return: None
         """
-        sensor_info = self.generate_sensor_info()
         data = {}
+        sensor_info = self.generate_sensor_info()
 
         if self.sensor_type == "U":
             uv_index = random.randint(0, 26)
@@ -160,30 +173,33 @@ class Sensor:
             }
 
         data.update(sensor_info)
-        try:
-            db_cursor.execute("INSERT INTO MessagesToSend (Data) VALUES(?)", (json.dumps(data),))
-            db_connection.commit()
-        except sqlite3.OperationalError as e:
-            logger.error(f"Error while inserting into the database: {e}")
+
+        with self.__lock:
+            db_connection = sqlite3.connect(self.database_file)
+            db_cursor = db_connection.cursor()
+
+            try:
+                db_cursor.execute("INSERT INTO MessagesToSend (Data) VALUES(?)", (json.dumps(data),))
+                db_connection.commit()
+            except sqlite3.OperationalError as e:
+                logger.error(f"Error while inserting into the database: {e}")
+
+            db_cursor.close()
+            db_connection.close()
 
         self.__sensor_results.put(data)
 
-    def run_sensor(self):
-        db_connection = sqlite3.connect(self.database_file)
-        db_cursor = db_connection.cursor()
+        return None
 
+    def run_sensor(self):
         while True:
-            self.generate_sensor_result(db_connection, db_cursor)
+            self.generate_sensor_result()
             sleep_time = random.randint(1, MAX_SENSOR_INTERVAL_IN_SECONDS)
             time.sleep(sleep_time)  # TODO: Threading?
 
-        db_cursor.close()
-        db_connection.close()
+        return None
 
     def run_messenger(self):
-        db_connection = sqlite3.connect(self.database_file)
-        db_cursor = db_connection.cursor()
-
         while True:
             if self.__sensor_results.empty():
                 continue
@@ -196,11 +212,15 @@ class Sensor:
 
             # TODO: Documentation - When message could not be sent, it should be deleted anyway \
             #  --> If the function is over, either the threshold was exceeded or the message was sent successfully
-            db_connection.execute("DELETE FROM MessagesToSend WHERE Data = ?", (message,))
-            db_connection.commit()
+            with self.__lock:
+                db_connection = sqlite3.connect(self.database_file)
+                db_cursor = db_connection.cursor()
 
-        db_cursor.close()
-        db_connection.close()
+                db_connection.execute("DELETE FROM MessagesToSend WHERE Data = ?", (message,))
+                db_connection.commit()
+
+                db_cursor.close()
+                db_connection.close()
 
 
 if __name__ == "__main__":

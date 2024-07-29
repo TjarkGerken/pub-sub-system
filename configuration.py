@@ -11,11 +11,11 @@ Configuration options:
 ## Maximum duration to wait for a message to be sent successfully
 RETRY_DURATION_IN_SECONDS = 300
 ## Duration to wait before retrying to send a failed request in secnods
-SECONDS_BETWEEN_RETRIES = 45
+SECONDS_BETWEEN_RETRIES = 10
 
 # Logging
 ## Severity level (choose from 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-LOGGING_LEVEL = "DEBUG"
+LOGGING_LEVEL = "INFO"
 ## Padding size for log messages
 LOGGING_PADDING = 65
 
