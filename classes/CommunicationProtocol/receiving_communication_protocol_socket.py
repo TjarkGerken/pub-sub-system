@@ -36,8 +36,9 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         # Execute DDL script to create tables if not already exist
         with open("database/ddl_socket.sql", "r") as ddl_file:
-            db_cursor.executescript(ddl_file.read())
-            db_connection.commit()
+            with self.__lock:
+                db_cursor.executescript(ddl_file.read())
+                db_connection.commit()
         logger.debug(f"Initialized database connection (UID: {self.uid})")
 
         # Prefill queue with messages that weren't sent yet
@@ -47,7 +48,8 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         db_connection.close()
 
     def prefill_queue(self, db_connection, db_cursor):
-        messages_to_send = db_cursor.execute("SELECT * FROM MessageSocketQueue ORDER BY MessageID ASC").fetchall()
+        with self.__lock:
+            messages_to_send = db_cursor.execute("SELECT * FROM MessageSocketQueue ORDER BY MessageID ASC").fetchall()
         for message in messages_to_send:
             self.message_queue.put(message[1])
 
@@ -72,8 +74,9 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         db_cursor = db_connection.cursor()
 
         try:
-            db_cursor.execute("INSERT INTO MessageSocketQueue (Data) VALUES (?)", (data,))
-            db_connection.commit()
+            with self.__lock:
+                db_cursor.execute("INSERT INTO MessageSocketQueue (Data) VALUES (?)", (data,))
+                db_connection.commit()
         except sqlite3.OperationalError as e:
             logger.error(f"Error while inserting message into database: {e}")
 
@@ -83,18 +86,31 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         return None
 
     def delete_message_from_db(self, data):
-        db_connection = sqlite3.connect(self.database_file)
+        sqlite3.threadsafety = 2
+        db_connection = sqlite3.connect(self.database_file, check_same_thread=False)
         db_cursor = db_connection.cursor()
 
-        logger.warn(f"Deleting message from database (UID: {self.uid} | Data: {data})")
+        logger.debug(f"Deleting message from database (UID: {self.uid} | Data: {data})")
+        serialized_data = json.dumps(data)
+        counter = 0
+        while True:
+            with self.__lock:
+                items = db_cursor.execute("SELECT * FROM MessageSocketQueue WHERE Data = ?",
+                                          (serialized_data,)).fetchall()
 
-        db_cursor.execute("DELETE FROM MessageSocketQueue WHERE Data = ?", (json.dumps(data),))
-        db_connection.commit()
+            if len(items) < 1:
+                break
+
+            if counter > 0:
+                logger.critical(
+                    f"Message occurred more than once in the database, deleting all affected instances | Counter: {counter}")
+
+            with self.__lock:
+                db_cursor.execute("DELETE FROM MessageSocketQueue WHERE Data = ?", (serialized_data,))
+                db_connection.commit()
+
         db_cursor.close()
         db_connection.close()
-
-        logger.warn(f"Deleted message from database (UID: {self.uid} | Data: {data})")
-
 
     def handle_message(self, data):
         sdr_addr, sdr_port, rec_addr, rec_port, sq_no, ack_no, checksum, sdr_uid, data = data.decode().split(" | ")
@@ -113,28 +129,32 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         sq_no = int(sq_no)
 
         if ack_no == 0 and data != "ACK":
-            with self.__lock:
-                logger.debug(f"{str('Received Message').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
 
-                self.stored_checksums[f"{sdr_uid}_{sq_no}"] = checksum
+            logger.debug(
+                f"{str('Received Message').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
 
-                self.message_queue.put(data)
-                self.insert_message_into_db(data)
+            self.stored_checksums[f"{sdr_uid}_{sq_no}"] = checksum
 
-                logger.debug(f"{str('Send Ack').ljust(50)}(UID: {self.uid} | SQ No. {sq_no} | ACK No. 1 | Data: {data})")
-                self.send((sdr_addr, sdr_port), "ACK", sq_no, 1, "ACK")
+            self.message_queue.put(data)
+            self.insert_message_into_db(data)
+
+            logger.debug(f"{str('Send Ack').ljust(50)}(UID: {self.uid} | SQ No. {sq_no} | ACK No. 1 | Data: {data})")
+            self.send((sdr_addr, sdr_port), "ACK", sq_no, 1, "ACK")
 
         elif ack_no == 2 and data == "ACK" and calculated_checksum in self.stored_checksums:
-            logger.debug(f"{str('Received ACK 2.1').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
+            logger.debug(
+                f"{str('Received ACK 2.1').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
             self.stored_checksums = remove_if_exists(self.stored_checksums, f"{sdr_uid}_{sq_no}")
             # logger.debug(f"{self.uid} | RM CHECKSUM Communication Complete")
 
         elif ack_no == 2:
-            logger.debug(f"{str('Received ACK 2.2').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
+            logger.debug(
+                f"{str('Received ACK 2.2').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
             # logger.debug(f"{self.uid} | Communication Complete")
 
         else:
-            logger.debug(f"{str('Duplicate ACK received').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
+            logger.debug(
+                f"{str('Duplicate ACK received').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
             # logger.debug(f"{self.uid} | ACK already sent, skipping...")
 
         return None  # TODO: Return Error Code
