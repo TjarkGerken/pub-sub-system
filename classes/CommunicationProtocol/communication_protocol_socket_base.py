@@ -47,8 +47,8 @@ class CommunicationProtocolSocketBase:
         logger2.debug(f"{time.time()},{self.uid},{address[0]}:{address[1]},{sq_no},{ack_no}")  # TODO: Remove Line
 
         try:
+            # logger.debug(f"{str('Send Data to ' + str(address)).ljust(50)}(UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} | Data ka: {data})")  # TODO: Redundant with log message in sending communication protocol socket
             self.cp_socket.sendto(data, address)
-            logger.debug(f"{str('Data Sent to ' + str(address)).ljust(50)}(UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} | Data ka: {data})")
         except Exception as e:  # TODO: Genauere Exception abfangen
             logger.critical(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} ) | Error : {e} | {address}") # TODO: Remove Error E
             logger.debug(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no}) | Error: {e})")

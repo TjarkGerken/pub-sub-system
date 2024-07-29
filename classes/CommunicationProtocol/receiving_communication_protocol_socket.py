@@ -60,7 +60,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         logger.info(f"Listening for incoming messages... (UID: {self.uid})")
         while True:
             message, addr = self.cp_socket.recvfrom(1024)
-            logger.debug(f"{str('Message Recieved from ' + str(addr)).ljust(50)}(UID: {self.uid} | Message: {message})")
+            # logger.debug(f"{str('Message Recieved from ' + str(addr)).ljust(50)}(UID: {self.uid} | Message: {message})")  # TODO: Redundant with log message in while loop down below
             if message:
                 threading.Thread(target=self.handle_message, args=(message,)).start()
 
@@ -77,17 +77,24 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         except sqlite3.OperationalError as e:
             logger.error(f"Error while inserting message into database: {e}")
 
+        db_cursor.close()
+        db_connection.close()
+
         return None
 
     def delete_message_from_db(self, data):
         db_connection = sqlite3.connect(self.database_file)
         db_cursor = db_connection.cursor()
 
-        try:
-            db_cursor.execute("DELETE FROM MessageSocketQueue WHERE Data = ?", (json.dumps(data),))
-            db_connection.commit()
-        except sqlite3.OperationalError as e:
-            logger.error(f"Error while deleting message from database: {e}")
+        logger.warn(f"Deleting message from database (UID: {self.uid} | Data: {data})")
+
+        db_cursor.execute("DELETE FROM MessageSocketQueue WHERE Data = ?", (json.dumps(data),))
+        db_connection.commit()
+        db_cursor.close()
+        db_connection.close()
+
+        logger.warn(f"Deleted message from database (UID: {self.uid} | Data: {data})")
+
 
     def handle_message(self, data):
         sdr_addr, sdr_port, rec_addr, rec_port, sq_no, ack_no, checksum, sdr_uid, data = data.decode().split(" | ")

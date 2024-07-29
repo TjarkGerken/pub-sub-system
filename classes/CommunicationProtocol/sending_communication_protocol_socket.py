@@ -73,8 +73,8 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         ack_received = False
 
         while time.time() - start_time < RETRY_DURATION_IN_SECONDS and not ack_received:
+            logger.debug(f"{str('Send Message to ' + str(address)).ljust(50)}(UID: {self.uid} | Seq No. {self.sequence_number} | ACK No. 0 | Data ka: {data})")
             self.send(address, "DATA", self.sequence_number, 0, data)
-            logger.debug(f"{str('Message sent to ' + str(address)).ljust(50)}(UID: {self.uid} | Seq No. {self.sequence_number} | ACK No. 0 | Data ka: {data})")
 
             ready = select.select([self.cp_socket], [], [], SECONDS_BETWEEN_RETRIES)
             if ready[0]:

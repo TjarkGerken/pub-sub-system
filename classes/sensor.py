@@ -174,7 +174,7 @@ class Sensor:
 
         while True:
             self.generate_sensor_result(db_connection, db_cursor)
-            sleep_time = random.randint(9, MAX_SENSOR_INTERVAL_IN_SECONDS)
+            sleep_time = random.randint(1, MAX_SENSOR_INTERVAL_IN_SECONDS)
             time.sleep(sleep_time)  # TODO: Threading?
 
         db_cursor.close()
