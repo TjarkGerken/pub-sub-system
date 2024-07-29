@@ -104,7 +104,6 @@ class Sensor:
         # Close the database connection and cleanup
         logger.debug(f"Initialized database connection (UID: {self.sensor_id})")
 
-
     def prefill_queue(self) -> None:
         """
         TODO: UPDATE DOCSTRING

@@ -75,4 +75,4 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
             logger.error(f"{str('Retries exhausted, message will be dropped').ljust(50)}(UID: {self.uid} | Seq No. {self.sequence_number}) not sent")
 
         self.sequence_number += 1
-        return None
+        return ack_received
