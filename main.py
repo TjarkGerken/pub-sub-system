@@ -86,8 +86,8 @@ def main() -> None:
         components.append(sensor)
 
     # Create message broker
-    # mb = MessageBroker()
-    # components.append(mb)
+    mb = MessageBroker()
+    components.append(mb)
 
     # Create subscribers
     for i in range(1, 2):
