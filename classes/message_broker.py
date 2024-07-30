@@ -1,5 +1,6 @@
 import ast
 import json
+import os
 import queue
 import signal
 import sqlite3
@@ -31,27 +32,26 @@ class MessageBroker:
         self.subscriber_queues = {}
         self.__subscribers_uv = []
         self.__subscribers_temp = []
-
         self.subscribers_map = {"UV": self.__subscribers_uv,
             "TEMP": self.__subscribers_temp}  # When adding a topic this needs to be updated
+        self.sequence_number = 0
 
         # Setup Database
         self.init_done = False
         self.__lock = threading.Lock()
         self.__database_file = "database/message_broker.db"
+        self.__config_file_path = "config/message_broker.json"
         self.database_init()
+        self.get_sequence_no_from_config()
 
         # Setup Actions for signal based stopping (gracefully)
         self.__actions = []
 
         # Setup Sockets
-        self.__sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004, self.__database_file)
-        self.__subscription_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000)
+        self._sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004, self.__database_file)
+        self.__subscription_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000, "database/message_broker_sub.db")
         self.__broadcast_udp_socket = SendingCommunicationProtocolSocket("MB_BROADCAST", 6200)
 
-        self.__actions.append(self.__sensor_udp_socket)
-        self.__actions.append(self.__subscription_socket)
-        self.__actions.append(self.__broadcast_udp_socket)
 
         # Setup Threads
         self.__sensor_listener_thread = StoppableThread(target=self.run_sensor_listener)
@@ -64,13 +64,42 @@ class MessageBroker:
         self.__subscription_handler_thread.start()
         self.__broadcast_thread.start()
 
-        self.__actions.append(self.__broadcast_thread)
         self.__actions.append(self.__sensor_listener_thread)
+        self.__actions.append(self._sensor_udp_socket)
+        self.__actions.append(self.__broadcast_thread)
+        self.__actions.append(self.__broadcast_udp_socket)
         self.__actions.append(self.__subscription_listener_thread)
         self.__actions.append(self.__subscription_handler_thread)
+        self.__actions.append(self.__subscription_socket)
 
         self.init_done = True
         logger.info("Message Broker Initialized")
+
+    def get_sequence_no_from_config(self):
+        """
+        Gets the sequence number from the configuration file and sets it to the class variable
+        :return: None
+        """
+        if os.path.exists(self.__config_file_path):
+            with open(self.__config_file_path, "r") as config_file:
+                # Retrieve values for config fields set in config file
+                config_data = json.load(config_file)
+                self.sequence_number = config_data.get("sq_no", 0)
+
+    def save_sq_no_to_config(self) -> None:
+        """
+        Save the current sequence number to the config file.
+        :return: None
+        """
+        config_data = {"sq_no": self.sequence_number}
+
+        # Ensure that the directory in which the configuration will be saved exists
+        os.makedirs(os.path.dirname(self.__config_file_path), exist_ok=True)
+
+        # Save config as json
+        with open(self.__config_file_path, "w") as config_file:
+            json.dump(config_data, config_file, indent=4)
+
 
     def database_init(self) -> None:
         """
@@ -174,7 +203,7 @@ class MessageBroker:
         Runs the listener for the sensor socket
         :return: None
         """
-        self.__sensor_udp_socket.listener()
+        self._sensor_udp_socket.listener(self.__sensor_listener_thread)
         return None
 
     def run_subscription_listener(self) -> None:
@@ -182,7 +211,7 @@ class MessageBroker:
         Runs the listener for the subscription socket
         :return: None
         """
-        self.__subscription_socket.listener()
+        self.__subscription_socket.listener(self.__subscription_listener_thread)
         return None
 
     def run_subscription_handler(self) -> None:
@@ -379,10 +408,10 @@ class MessageBroker:
         # Send messages to subscribers as soon as they are available as long as the thread is not stopped
         while not self.__broadcast_thread.stopped():
             # If no messages are available or the initialization is not done yet, don't perform any actions
-            if self.__sensor_udp_socket.message_queue.empty() or not self.init_done:
+            if self._sensor_udp_socket.message_queue.empty() or not self.init_done:
                 continue
 
-            message = self.__sensor_udp_socket.message_queue.get()
+            message = self._sensor_udp_socket.message_queue.get()
             message = ast.literal_eval(message)
 
             # Check to which topic the message belongs to and send it to the subscribers that are subscribed to it
@@ -403,8 +432,7 @@ class MessageBroker:
         :return: None
         """
         # Get the thread of the subscriber to check if it is still running
-        thread = self.subscriber_queues[subscriber]["thread"]
-        while not thread.stopped():
+        while not self.subscriber_queues[subscriber]["thread"].stopped():
             # If the initialization is not done yet, don't perform any actions
             if not self.init_done:
                 continue
@@ -458,8 +486,11 @@ class MessageBroker:
                 logger.debug(f"Could not find Queue: Subscriber ({subscriber}) not subscribed to topic {topic}")
 
         # Delete the message from the database after it was sent to all subscribers
-        self.__sensor_udp_socket.delete_message_from_db(message)
-        self.__sensor_udp_socket.message_queue.task_done()
+        self._sensor_udp_socket.delete_message_from_db(message)
+        logger.info(f"{self.sequence_number}, {message}")
+        self.sequence_number += 1
+        self.save_sq_no_to_config()
+        self._sensor_udp_socket.message_queue.task_done()
 
     def delete_from_db_messages_to_send(self, subscriber: tuple[str, int], topic: str, data: str) -> None:
         """

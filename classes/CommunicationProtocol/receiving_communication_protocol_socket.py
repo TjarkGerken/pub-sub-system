@@ -49,10 +49,11 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         super().__init__(uid, port)
 
         # Initialize extra attributes
+        self.stored_results = []
         self.stored_checksums = {}
         self.message_queue = queue.Queue()
         self.database_file = database_file
-        self.__lock = threading.Lock()
+        self.__lock = threading.RLock()
 
         # Set a timeout for the socket to gracefully handle the stop event
         self.set_timeout(1)
@@ -67,47 +68,51 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         :return: None
         """
-        # Create the database if it does not exist and connect to it
-        db_connection = sqlite3.connect(self.database_file)
-        db_cursor = db_connection.cursor()
 
         # Read DDL statements from predefined file and execute them
-        with open("database/ddl_socket.sql", "r") as ddl_file:
-            with self.__lock:
-                db_cursor.executescript(ddl_file.read())
-                db_connection.commit()
+        with self.__lock:
+            # Create the database if it does not exist and connect to it
+            db_connection = sqlite3.connect(self.database_file)
+            db_cursor = db_connection.cursor()
+            with open("database/ddl_socket.sql", "r") as ddl_file:
+                with self.__lock:
+                    db_cursor.executescript(ddl_file.read())
+                    db_connection.commit()
 
-        logger.debug(f"Initialized database connection (UID: {self.uid})")
+            logger.debug(f"Initialized database connection (UID: {self.uid})")
+            db_cursor.close()
+            db_connection.close()
 
         # Prefill queue with messages that weren't sent yet
-        self.prefill_queue(db_connection, db_cursor)
-
-        db_cursor.close()
-        db_connection.close()
+        self.prefill_queue()
 
         return None
 
-    def prefill_queue(self, db_connection: sqlite3.Connection, db_cursor: sqlite3.Cursor) -> None:
+    def prefill_queue(self) -> None:
         """
         Prefills the message queue with messages that weren't sent yet.
-
-        :param db_connection: The database connection to use for the query
-        :param db_cursor: The database cursor to use for the query
 
         :return: None
         """
         # Lock the database connection and cursor to ensure thread safety
         with self.__lock:
+            db_connection = sqlite3.connect(self.database_file)
+            db_cursor = db_connection.cursor()
             # Get all messages from the database that haven't been sent yet
             messages_to_send = db_cursor.execute("SELECT * FROM MessageSocketQueue ORDER BY MessageID ASC").fetchall()
-
+            checksums = db_cursor.execute("SELECT * FROM Checksums").fetchall()
+            db_cursor.close()
+            db_connection.close()
         # Add the messages to the queue
         for message in messages_to_send:
             self.message_queue.put(message[1])
 
+        for checksum in checksums:
+            self.stored_checksums[checksum[0]] = checksum[1]
+
         return None
 
-    def listener(self) -> None:
+    def listener(self, listener_thread=None) -> None:
         """
         Listens for incoming messages and starts a new thread to handle each message.
         :return: None
@@ -120,17 +125,22 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 # Receive a message from the client
                 message, addr = self.cp_socket.recvfrom(1024)
                 logger.debug(f"Message Received from {addr} (UID: {self.uid})")
-
+                if listener_thread:
+                    if listener_thread.stopped():
+                        break
                 if message:
                     # Start a new thread to handle the message and stop it immediately
                     # No need for infinite threads, as the message is processed only once
-                    t = StoppableThread(target=self.handle_message, args=(message,))
+                    t = StoppableThread(target=self.handle_message, args=(message, listener_thread))
                     t.start()
                     t.stop()
 
             except TimeoutError as e:
                 # Timeout is reached while waiting for a message
-                # Timeout is important to check if the thread should stop → start listening again
+                # Timeout is important to check if the thread shoulrrord stop → start listening again
+                if listener_thread:
+                    if listener_thread.stopped():
+                        break
                 continue
             except OSError as e:
                 # TODO: Document
@@ -138,6 +148,37 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 continue
 
         logger.info(f"Stopped listening for incoming messages... (UID: {self.uid})")
+
+        return None
+
+    def insert_checksum_into_db(self, uid: str, checksum: str) -> None:
+        """
+        Inserts a message into the database
+
+        :param uid: The key for the dictionary
+        :param checksum: The checksum of the message
+
+        :return: None
+        """
+        if self.database_file is None:
+            return None
+
+        try:
+            # Lock the resources to ensure thread safety
+            with self.__lock:
+                # Connect to the database
+                db_connection = sqlite3.connect(self.database_file)
+                db_cursor = db_connection.cursor()
+
+                # Insert the message into the database for persistence
+                db_cursor.execute("INSERT INTO Checksums (DicKey, Checksum) VALUES (?, ?)", (uid, checksum,))
+                db_connection.commit()
+                # logger.critical(f"Inserted checksum into database (UID: {self.uid} | UID: {uid} | Checksum: {checksum})")
+                # Close the resources
+                db_cursor.close()
+                db_connection.close()
+        except sqlite3.OperationalError as e:
+            logger.error(f"Error while inserting message into database: {e}")
 
         return None
 
@@ -172,6 +213,34 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         return None
 
+    def delete_checksum_from_db(self, uid: str) -> None:
+        """
+       Deletes a message from the database
+
+       :param uid: The key of the checksum in the dictionary
+
+       :return: None
+       """
+        # Set the threadsafety level to 2 to prevent threads hindering each other
+        sqlite3.threadsafety = 2
+        logger.debug(f"Deleting checksum from database (UID: {self.uid} | UID: {uid})")
+
+        # Lock the resources to ensure thread safety
+        with self.__lock:
+            # Connect to the database
+            db_connection = sqlite3.connect(self.database_file, check_same_thread=False)
+            db_cursor = db_connection.cursor()
+
+            # Delete the checksum from the database
+            db_cursor.execute("DELETE FROM Checksums WHERE DicKey = ?", (uid,))
+            db_connection.commit()
+
+            # Close the database connection
+            db_cursor.close()
+            db_connection.close()
+
+        return None
+
     def delete_message_from_db(self, data: str) -> None:
         """
         Deletes a message from the database
@@ -203,12 +272,12 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         return None
 
-    def handle_message(self, data: str) -> None:
+    def handle_message(self, data: str, parent_thread=None) -> None:
         """
         This method handles the received message. If it is a data packet (ACK No. 0), it stores the checksum and sends
         an ACK for the received message. If the packet is an Acknowledgement for the Acknowledgement (ACK No. 2), it
         removes the stored checksum and logs the completion of the communication to avoid duplicate messages.
-
+        TODO: Add Parent Therad
         :param data: The received message to be handled
 
         :return: None
@@ -243,30 +312,46 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 f"{str('Received Message').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
             if f"{sdr_uid}_{sq_no}" in self.stored_checksums:
                 logger.debug(f"Received Duplicate Message from {sdr_uid} with SQ No. {sq_no}")
-                return None # TODO: Return Error Code
+                self.send((sdr_addr, sdr_port), "ACK", sq_no, 1, "ACK")
+                logger.debug(
+                    f"{str('Ack has been sent').ljust(50)}(UID: {self.uid} | TO {(sdr_addr, sdr_port)} | SQ No. {sq_no} | ACK No. 1 | Data: {data})")
+                return None  # TODO: Return Error Code
 
             # Store the checksum of the received packet
-            self.stored_checksums[f"{sdr_uid}_{sq_no}"] = checksum
 
-            # Insert the message into the queue and database
-            self.message_queue.put(data)
-            self.insert_message_into_db(data)
+            if parent_thread:
+                if parent_thread.stopped():
+                    return None
 
-            # Send an ACK for the received message
-            logger.debug(f"{str('Send Ack').ljust(50)}(UID: {self.uid} | SQ No. {sq_no} | ACK No. 1 | Data: {data})")
-            self.send((sdr_addr, sdr_port), "ACK", sq_no, 1, "ACK")
+            with self.__lock:
+
+                # Insert the message into the queue and database
+                self.message_queue.put(data)
+                self.insert_message_into_db(data)
+
+                self.stored_checksums[f"{sdr_uid}_{sq_no}"] = checksum
+                self.insert_checksum_into_db(f"{sdr_uid}_{sq_no}", checksum)
+
+                # Send an ACK for the received message
+                self.send((sdr_addr, sdr_port), "ACK", sq_no, 1, "ACK")
+                logger.debug(
+                    f"{str('Ack has been sent').ljust(50)}(UID: {self.uid} | TO {(sdr_addr, sdr_port)} | SQ No. {sq_no} | ACK No. 1 | Data: {data})")
 
         # ACK for ACK received
         elif ack_no == 2 and data == "ACK" and f"{sdr_uid}_{sq_no}" in self.stored_checksums:
-            logger.debug(
-                f"{str('Received ACK 2.1').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
-            self.stored_checksums = remove_if_exists(self.stored_checksums, f"{sdr_uid}_{sq_no}")
-            logger.debug(f"{self.uid} | RM CHECKSUM Communication Complete")
+            with self.__lock:
+                logger.debug(
+                    f"{str('Received ACK 2.1').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
+                self.stored_checksums = remove_if_exists(self.stored_checksums, f"{sdr_uid}_{sq_no}")
+                self.delete_checksum_from_db(f"{sdr_uid}_{sq_no}")
+                self.stored_results.append(f"{sdr_uid}_{sq_no}")
+            logger.debug(f"{self.uid} | Removed Checksum | Communication Complete")
 
         # ACK for ACK received but the stored checksum is not found # TODO: When is this case possible?
         elif ack_no == 2:
             logger.debug(f"{str('Received ACK 2.2').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | "
                          f"Data: {data})")
+            self.stored_results.append(f"{sdr_uid}_{sq_no}")
             logger.debug(f"{self.uid} | Communication Complete")
 
         else:

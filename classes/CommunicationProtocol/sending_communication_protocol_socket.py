@@ -40,6 +40,7 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         super().__init__(uid, port)
 
         # Initialize extra attributes
+        self.completed_results = []
         self.sequence_number = 0
         self.message_queue = queue.Queue()
         self.__lock = threading.Lock()
@@ -63,7 +64,7 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         # retry sending the message every SECONDS_BETWEEN_RETRIES seconds.
         while time.time() - start_time < RETRY_DURATION_IN_SECONDS and not ack_received:
             logger.debug(
-                f"{str('Send Message to ' + str(address)).ljust(50)}(UID: {self.uid} | Seq No. {self.sequence_number} |"
+                f"{str('Send Message to ' + str(address)).ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} |"
                 f" ACK No. 0 | Data ka: {data})")
 
             # Send the message to the client
@@ -73,12 +74,16 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 # Wait for an ACK from the client
                 ack = self.cp_socket.recvfrom(1024)
                 if ack[0]:
+                    logger.critical(f"ACK received: {ack[0]}")
                     logger.debug(
-                        f"{str('ACK received for message').ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} | ACK No. 1 | Data ka: {data})")
+                        f"{str('ACK received for message').ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} |"
+                        f" ACK No. 1 | Data ka: {data})")
                     logger.debug(
-                        f"{str('Sending ACK for ACK').ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} | ACK No. 2 | Data ka: {data})")
+                        f"{str('Sending ACK for ACK').ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} | "
+                        f"ACK No. 2 | Data ka: {data})")
 
                     # Send an ACK for the ACK received
+                    self.completed_results.append(f"{self.uid} {self.sequence_number}")
                     self.send(address, "ACK", self.sequence_number, 2, "ACK")
                     ack_received = True
                     break

@@ -40,7 +40,7 @@ class Sensor:
         A queue to store the sensor results before they are sent to the message broker
     __actions : list
         A list of all actions that are performed by the sensor (threads and sockets) that should be gracefully stopped
-    __cp_socket : SendingCommunicationProtocolSocket
+    _cp_socket : SendingCommunicationProtocolSocket
         A socket to send messages to the message broker
     __thread_sensor : StoppableThread
         A thread that generates sensor data
@@ -84,8 +84,8 @@ class Sensor:
         self.init_db()
 
         # Initialize socket to send messages to the Message broker
-        self.__cp_socket = SendingCommunicationProtocolSocket(self.sensor_id, self.sensor_port)
-        self.__actions.append(self.__cp_socket)
+        self._cp_socket = SendingCommunicationProtocolSocket(self.sensor_id, self.sensor_port)
+        self.__actions.append(self._cp_socket)
         logger.info(
             f"Sensor initialized (UID: {self.sensor_id} | Type: {self.sensor_type} | Location: {self.location})")
 
@@ -226,7 +226,7 @@ class Sensor:
         # Send sensor data to the message broker when available until the thread is stopped
         while not self.__thread_messenger.stopped():
             # Check if there is any sensor data available to send
-            if self._sensor_results.empty() or not self.generate:
+            if self._sensor_results.empty():
                 continue
 
             # Get the sensor data from the queue and send it to the message broker
@@ -234,7 +234,7 @@ class Sensor:
             message = json.dumps(sensor_result)
 
             logger.info(f"[{self.sensor_id}] Send Message: {message}")
-            ack_received = self.__cp_socket.send_message(message, ("127.0.0.1", 5004))
+            ack_received = self._cp_socket.send_message(message, ("127.0.0.1", 5004))
 
             # Delete the message from the database when it was sent successfully (message broker received it) or could
             # not be sent (within specified time interval), it should be deleted anyway. If send_message is over, either
