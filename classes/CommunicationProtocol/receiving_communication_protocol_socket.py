@@ -77,6 +77,9 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 # Timeout is reached while waiting for a message
                 # Timeout is important to check if the thread should stop → start listening again
                 continue
+            except OSError as e:
+                logger.error(f"Error while receiving message: {e}")
+                continue
 
         logger.info(f"Stopped listening for incoming messages... (UID: {self.uid})")
 

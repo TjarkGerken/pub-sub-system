@@ -22,6 +22,7 @@ class CommunicationProtocolSocketBase:
         self.cp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.cp_socket.bind(("127.0.0.1", self.port))
         self._stop = False
+        self.set_timeout(1)
 
     def set_timeout(self, timeout: int) -> None:
         """
@@ -67,4 +68,7 @@ class CommunicationProtocolSocketBase:
 
     def stop(self):
         self._stop = True
+        if self.cp_socket:
+            self.cp_socket.close()
+            logger.info(f"Socket closed (UID: {self.uid})")
         return None

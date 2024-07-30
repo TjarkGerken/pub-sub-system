@@ -55,9 +55,9 @@ def main():
     components.append(mb)
     #
     # # Create subscribers
-    #for i in range(1, 2):
-    #     subscriber = Subscriber(subscriber_port=6200 + i + 1,
-    #                             subscriber_type="B")  # if i % 3 == 0 else "U" if i % 3 == 1 else "S")
+    for i in range(1, 2):
+         subscriber = Subscriber(subscriber_port=6200 + i + 1,
+                                 subscriber_type="B")  # if i % 3 == 0 else "U" if i % 3 == 1 else "S")
     #     components.append(subscriber)
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -67,8 +67,8 @@ def main():
 
 
 if __name__ == '__main__':
-    test_subscriber()
-    # main()
+    #test_subscriber()
+     main()
 
 
 #test_case_1()

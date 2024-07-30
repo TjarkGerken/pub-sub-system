@@ -68,7 +68,7 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                     ack_received = True
                     break
             except ConnectionResetError as e:
-                logger.warn(f"Client not reachable, retrying in {SECONDS_BETWEEN_RETRIES} second(s)...")
+                logger.warning(f"Client not reachable, retrying in {SECONDS_BETWEEN_RETRIES} second(s)...")
                 logger.debug(f"Connection reset error | {e}")
             except TimeoutError as e:
                 logger.debug(f"Timeout error | {e}")

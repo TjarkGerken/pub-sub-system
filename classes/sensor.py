@@ -36,7 +36,7 @@ class Sensor:
         The location of the sensor
     database_file : str
         The path to the SQLite database file for the sensor
-    __sensor_results : queue.Queue
+    _sensor_results : queue.Queue
         A queue to store the sensor results before they are sent to the Message broker
     __cp_socket : SendingCommunicationProtocolSocket
         The socket to send messages to the Message broker
@@ -44,18 +44,19 @@ class Sensor:
         A lock to avoid conflicts when accessing the sensor results queue
     """
 
-    def __init__(self, sensor_port: int, sensor_type: str, location: str):
+    def __init__(self, sensor_port: int, sensor_type: str, location: str, generate: bool = True):
         """
         Initializes the sensor with the given port, type and location
 
         :param sensor_port: The port number of the sensor
         :param sensor_type: The type of the sensor ('U' for UV, 'S' for temperature)
         :param location: The location of the sensor
-
+        :param generate: Whether the sensor should generate data or not
         :raise ValueError: If the sensor type is neither 'U' nor 'S'
 
         :return: Sensor object
         """
+
         if sensor_type not in ["U", "S"]:
             raise ValueError("Sensor type must be either 'U' or 'S'")
 
@@ -64,7 +65,8 @@ class Sensor:
         self.sensor_id = f"SENSOR_{location.upper()}_{sensor_type.upper()}_{sensor_port}"
         self.sensor_type = sensor_type
         self.location = location
-        self.__sensor_results = queue.Queue()
+        self._sensor_results = queue.Queue()
+        self.generate = generate
         self.__actions = []
         self.__lock = threading.Lock()
 
@@ -142,7 +144,7 @@ class Sensor:
         # Convert the string representation of the message to a dictionary and put it into the queue
         for message in messages_to_send:
             data = ast.literal_eval(message[1])
-            self.__sensor_results.put(data)
+            self._sensor_results.put(data)
 
         return None
 
@@ -199,12 +201,12 @@ class Sensor:
             db_cursor.close()
             db_connection.close()
 
-        self.__sensor_results.put(data)
+        self._sensor_results.put(data)
 
         return None
 
     def run_sensor(self):
-        while not self.__thread_sensor.stopped():
+        while not self.__thread_sensor.stopped() and self.generate:
             self.generate_sensor_result()
             sleep_time = random.randint(1, MAX_SENSOR_INTERVAL_IN_SECONDS)
             start_time = time.time()
@@ -215,27 +217,31 @@ class Sensor:
         return None
 
     def run_messenger(self):
+        ack_received = False
         while not self.__thread_messenger.stopped():
-            if self.__sensor_results.empty():
+            if self._sensor_results.empty()  or not self.generate:
                 continue
 
-            sensor_result = self.__sensor_results.get()
+            sensor_result = self._sensor_results.get()
             message = json.dumps(sensor_result)
 
             logger.info(f"[{self.sensor_id}] Send Message: {message}")
-            self.__cp_socket.send_message(message, ("127.0.0.1", 5004))
+            ack_received = self.__cp_socket.send_message(message, ("127.0.0.1", 5004))
 
             # TODO: Documentation - When message could not be sent, it should be deleted anyway \
             #  --> If the function is over, either the threshold was exceeded or the message was sent successfully
-            with self.__lock:
-                db_connection = sqlite3.connect(self.database_file)
-                db_cursor = db_connection.cursor()
 
-                db_connection.execute("DELETE FROM MessagesToSend WHERE Data = ?", (message,))
-                db_connection.commit()
+        with self.__lock:
+            if not ack_received:
+                return
+            db_connection = sqlite3.connect(self.database_file)
+            db_cursor = db_connection.cursor()
 
-                db_cursor.close()
-                db_connection.close()
+            db_connection.execute("DELETE FROM MessagesToSend WHERE Data = ?", (message,))
+            db_connection.commit()
+
+            db_cursor.close()
+            db_connection.close()
 
     def stop(self):
         """
