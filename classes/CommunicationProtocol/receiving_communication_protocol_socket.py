@@ -137,7 +137,9 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         if ack_no == 0 and data != "ACK":
             logger.debug(
                 f"{str('Received Message').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
-
+            if f"{sdr_uid}_{sq_no}" in self.stored_checksums:
+                logger.debug(f"Received Duplicate Message from {sdr_uid} with SQ No. {sq_no}")
+                return None # TODO: Return Error Code
             self.stored_checksums[f"{sdr_uid}_{sq_no}"] = checksum
 
             self.message_queue.put(data)
@@ -145,7 +147,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
             logger.debug(f"{str('Send Ack').ljust(50)}(UID: {self.uid} | SQ No. {sq_no} | ACK No. 1 | Data: {data})")
             self.send((sdr_addr, sdr_port), "ACK", sq_no, 1, "ACK")
-        elif ack_no == 2 and data == "ACK" and calculated_checksum in self.stored_checksums:
+        elif ack_no == 2 and data == "ACK" and f"{sdr_uid}_{sq_no}" in self.stored_checksums:
             logger.debug(
                 f"{str('Received ACK 2.1').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | Data: {data})")
             self.stored_checksums = remove_if_exists(self.stored_checksums, f"{sdr_uid}_{sq_no}")
