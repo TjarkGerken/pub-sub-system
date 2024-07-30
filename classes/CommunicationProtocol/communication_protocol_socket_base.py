@@ -86,7 +86,7 @@ class CommunicationProtocolSocketBase:
             # Send the data to the specified endpoint
             self.cp_socket.sendto(data, address)
         except Exception as e:  # TODO: Genauere Exception abfangen
-            logger.critical(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} ) | Error : {e} | {address}") # TODO: Remove Error E
+            logger.critical(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} ) | Error : {e} | {address}") # TODO: Remove Error
             logger.debug(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no}) | Error: {e})")
 
         # TODO: Return status (OK or Error)?
