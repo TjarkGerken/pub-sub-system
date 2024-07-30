@@ -1,4 +1,5 @@
 import json
+import os
 import queue
 import threading
 import time
@@ -20,6 +21,7 @@ class Subscriber:
         self.__subscriber_id = f"SUBSCRIBER_{subscriber_type}_{subscriber_port}"
         self.__database_file = f"database/{self.__subscriber_id}.db"
         self.__subscriptions = []
+        self.__config_file_path = f"config/{self.__subscriber_id}.json"
 
         # Socket
         self.__subscription_socket = SendingCommunicationProtocolSocket(self.__subscriber_id, subscriber_port + 1)
@@ -34,14 +36,31 @@ class Subscriber:
 
         logger.info("Subscriber Started")
 
+    def get_subscriptions_from_config(self):
+        if os.path.exists(self.__config_file_path):
+            with open(self.__config_file_path, "r") as config_file:
+                config_data = json.load(config_file)
+                return config_data.get("subscriptions", [])
+
+    def save_subscriptions_to_config(self):
+        config_data = {
+            "subscriber_id": self.__subscriber_id,
+            "subscriptions": self.__subscriptions
+        }
+        os.makedirs(os.path.dirname(self.__config_file_path), exist_ok=True)
+        with open(self.__config_file_path, "w") as config_file:
+            json.dump(config_data, config_file, indent=4)
+
     def initiate_subscription(self):
         # Send subscription request to the message broker based on the type
         # Listen for the response from the message broker with a port and store it in the subscriptions
-        subs= []
-        if self.__subscriber_type == "U" or self.__subscriber_type == "B":
-            subs.append(f"UV")
-        if self.__subscriber_type == "S" or self.__subscriber_type == "B":
-            subs.append(f"TEMP")
+        subs = self.get_subscriptions_from_config()
+        if not subs and not isinstance(subs, list):
+            subs = []
+            if self.__subscriber_type == "U" or self.__subscriber_type == "B":
+                subs.append(f"UV")
+            if self.__subscriber_type == "S" or self.__subscriber_type == "B":
+                subs.append(f"TEMP")
 
         for sub in subs:
             self.subscribe(sub)
@@ -54,6 +73,7 @@ class Subscriber:
                                                            ("127.0.0.1", 6000))
         if subscription_type not in self.__subscriptions and response:
             self.__subscriptions.append(subscription_type)
+            self.save_subscriptions_to_config()
 
     def unsubscribe(self, subscription_type: Literal["UV", "TEMP"]):
         if subscription_type not in self.__subscriptions:
@@ -63,6 +83,7 @@ class Subscriber:
                                                            ("127.0.0.1", 6000))
         if subscription_type in self.__subscriptions and response:
             self.__subscriptions.remove(subscription_type)
+            self.save_subscriptions_to_config()
 
     def run_logger(self):
         sensor_value = ""

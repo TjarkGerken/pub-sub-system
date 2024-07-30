@@ -26,8 +26,8 @@ def test_subscriber():
     subscriber.unsubscribe("UV")
     time.sleep(10)
     subscriber.unsubscribe("TEMP")
-    time.sleep(30)
-    subscriber.subscribe("UV")
+    #time.sleep(30)
+    #subscriber.subscribe("UV")
 
 
 #def test_case_1():

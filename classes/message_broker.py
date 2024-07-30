@@ -33,7 +33,7 @@ class MessageBroker:
 
         # Setup Database
         self.init_done = False
-        self.__lock = threading.RLock()
+        self.__lock = threading.Lock()
         self.__database_file = "database/message_broker.db"
         self.database_init()
 
@@ -46,11 +46,6 @@ class MessageBroker:
         threading.Thread(target=self.run_subscription_listener).start()
         threading.Thread(target=self.run_subscription_handler).start()
         threading.Thread(target=self.run_broadcast).start()
-
-        # TODO: Key: SensorId, Value: Queue
-        # Wenn neue Nachricht beim MB ankommt, dann wird geschaut welches Topic, dann schauen welcher Subscriber
-        # => über Subscriber ID auf Queue zugreifen wo Nachrichten gespeichert werden -> queue.put
-        # in thread geben wir die queue
 
         self.init_done = True
 
@@ -171,7 +166,11 @@ class MessageBroker:
             logger.info(f"[MB_SUBSCRIPTION] | Successfully Subscribed {addr} to Topic {message}")
 
         elif action == "UNSUBSCRIBE":
-            self.subscribers_map[topic].remove(addr)
+            try:
+                self.subscribers_map[topic].remove(addr)
+            except:
+                logger.error(f"[MB_SUBSCRIPTION] | {addr} not subscribed to {topic}")
+                return None
 
             is_present = False
             for s_topic, s_subscribers in self.subscribers_map.items():
@@ -309,17 +308,11 @@ class MessageBroker:
         with self.__lock:
             db_connection = sqlite3.connect(self.__database_file)
             db_cursor = db_connection.cursor()
-            logger.critical(f"{str(subscriber[0])}, {str(subscriber[1])}, {str(topic)}")
-
             subscriber_id = db_cursor.execute(
                 "SELECT SubscriberID FROM Subscriber WHERE Address = ? AND Port = ? AND Topic = ?",
                 (subscriber[0], subscriber[1], topic)).fetchone()
-            logger.critical("DELETE ALL FAST JETZE")
-            logger.critical(str(subscriber_id))
-
             if subscriber_id:
                 subscriber_id = subscriber_id[0]
-                logger.critical("DELETE ALL JETZE")
                 db_cursor.execute("DELETE FROM MessagesToSend WHERE SubscriberID = ?",
                                   (subscriber_id,))
                 db_connection.commit()
