@@ -14,7 +14,7 @@ from utils.StoppableThread import StoppableThread
 
 def database_init():
     """
-    Initializes the SQLite database by creating the necessary tables if they do not already exist.
+    Initializes the SQLite database by replacing them with new ones to ensure no data is left from previous runs.
     """
     # Create the database if it does not exist and connect to it
     db_path = "database/message_broker.db"
@@ -37,8 +37,15 @@ def database_init():
 
 
 class TestCommunicationIntegration(unittest.TestCase):
+    """
+    Integration tests for the communication protocol between client and server.
+    """
     @classmethod
     def setUpClass(cls):
+        """
+        Initializes the database and introduces a lock for the test.
+        :return:
+        """
         database_init()
         cls.__lock = threading.Lock()
 
@@ -46,9 +53,9 @@ class TestCommunicationIntegration(unittest.TestCase):
         """
         Tests the sending of data from the client to the server in a regular scenario.
 
-        This test sets up a listener thread for the server, sends a test message
-        from the client to the server, and verifies that the message is received
-        correctly.    Test the sending of data from the client to the server.
+        This test initializes the client and server, sends two messages from the client to the server,
+        and verifies that the messages are received correctly by the server. The test also verifies that the
+        client sequence number is incremented correctly and that the messages are stored in the database.
         :return: None
         """
         client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5002)
@@ -93,9 +100,13 @@ class TestCommunicationIntegration(unittest.TestCase):
 
     def test_retry_behaviour(self):
         """
-            Test the retry behavior of the communication protocol when the Server is not reachable and no ACK is received.
-            This test configures the retry duration and interval, sets up listener and sender threads,
-            and verifies that the message is received correctly after retries.
+            Tests if the client retries sending a message to the server when it is not reachable.
+
+            This test initializes the client and server, sends a message from the client to the server,
+            and verifies that the message is received correctly by the server even though the server gets started 10
+            seconds after the client.
+
+
             :return: None
             """
         client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5003)
@@ -124,15 +135,25 @@ class TestCommunicationIntegration(unittest.TestCase):
         listener_thread.start()
         time.sleep(5)
         received_message = server.message_queue.get()
-
+        sq_number = client.sequence_number
         listener_thread.stop()
         client.stop()
         server.stop()
-        self.assertEqual(received_message, message)
+        self.assertEqual(received_message, message, "Expected message to be received by the server")
+        self.assertEqual(sq_number, 1, "Expected client sequence number to be 1")
+
 
     def test_duplicate_messages(self):
         """
-            #TODO: Behaviour diskutieren
+            Tests if the server ignores duplicate messages from the client if no 2nd ACK is returned.
+            The communication protocol expects when the 2nd ACK is sent from the client to the server, that the client
+            has removed the message from its queue and the message is not send again. Therefore only messages that have
+            not yet received a 2nd ACK have to be checked for duplicates.
+
+            This test initializes the client and server, sends the same message twice from the client to the server.
+            The server only receives the data and returns a 1st ACK. The client does not respond with a 2nd ACK, but
+            sends the same data again. The server should ignore the duplicate message and not store it in the database.
+
             :return:
             """
         client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5000)
@@ -166,7 +187,9 @@ class TestCommunicationIntegration(unittest.TestCase):
         send_thread1.join()
         send_thread.join()
         size = server.message_queue.qsize()
+        stored_checksums = server.stored_checksums
         server.stop()
         client.stop()
         listener_thread.stop()
-        self.assertEqual(size, 1)
+        self.assertEqual(size, 1, "Expected 1 message in the server message queue")
+        self.assertEqual(len(stored_checksums), 1, "Expected 1 stored checksum in the server")
