@@ -1,7 +1,7 @@
-import signal
-import threading
-import time
 import sys
+import time
+import threading
+import signal
 
 from classes.message_broker import MessageBroker
 
@@ -30,6 +30,19 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
+def test_subscriber():
+    mb = MessageBroker()
+    sensor = Sensor(sensor_port=5100, sensor_type="U", location="BRM")
+    sensor = Sensor(sensor_port=5102, sensor_type="S", location="BRM")
+    subscriber = Subscriber(subscriber_port=6205, subscriber_type="B")
+    time.sleep(10)
+    subscriber.unsubscribe("UV")
+    time.sleep(10)
+    subscriber.unsubscribe("TEMP")
+    # time.sleep(30)
+    # subscriber.subscribe("UV")
+
+
 def main():
     # Create publishers (sensors)
     for i in range(1, 2):
@@ -53,16 +66,10 @@ def main():
         time.sleep(0.1)
 
 
-#def test_case_1():
-#   mb = MessageBroker()
-#  s1 = Sensor(sensor_port=5100, sensor_type="U", location="BRM")
-# # s1 = Sensor(sensor_port=5102, sensor_type="U", location="BRM")
-# s1 = Sensor(sensor_port=5105, sensor_type="U", location="BRM")
-#sb = Subscriber(subscriber_port=6201, subscriber_type="B")
-
-
 if __name__ == '__main__':
-    main()
+    test_subscriber()
+    # main()
+
 
 #test_case_1()
 

@@ -69,11 +69,6 @@ class MessageBroker:
         self.__actions.append(self.__subscription_listener_thread)
         self.__actions.append(self.__subscription_handler_thread)
 
-        # TODO: Key: SensorId, Value: Queue
-        # Wenn neue Nachricht beim MB ankommt, dann wird geschaut welches Topic, dann schauen welcher Subscriber
-        # => über Subscriber ID auf Queue zugreifen wo Nachrichten gespeichert werden -> queue.put
-        # in thread geben wir die queue
-
         self.init_done = True
 
         logger.info("Message Broker Started")
@@ -195,19 +190,45 @@ class MessageBroker:
             logger.info(f"[MB_SUBSCRIPTION] | Successfully Subscribed {addr} to Topic {message}")
 
         elif action == "UNSUBSCRIBE":
-            self.remove_from_db_subscriber(addr, topic)
-            self.subscribers_map[topic].remove(addr)
+            try:
+                self.subscribers_map[topic].remove(addr)
+            except:
+                logger.error(f"[MB_SUBSCRIPTION] | {addr} not subscribed to {topic}")
+                return None
 
             is_present = False
             for s_topic, s_subscribers in self.subscribers_map.items():
                 if addr in s_subscribers:
                     is_present = True
-                    break
+                    with (self.__lock):
+                        old_queue = self.subscriber_queues[addr]["queue"]
+                        self.subscriber_queues[addr]["queue"] = queue.Queue()
+                        while not old_queue.empty():
+                            message = old_queue.get()
+                            if isinstance(message, str):
+                                try:
+                                    message = json.loads(message)
+                                except (TypeError, json.JSONDecodeError):
+                                    message = ast.literal_eval(message)
+                            if message["sensor_type"] == "S" and topic == "UV" and is_present:
+                                self.subscriber_queues[addr]["queue"].put(message)
+                            elif message["sensor_type"] == "U" and topic == "TEMP" and is_present:
+                                self.subscriber_queues[addr]["queue"].put(json.dumps(message))
+                            old_queue.task_done()
+                self.delete_all_from_db_messages_to_send(addr, topic)
+                self.remove_from_db_subscriber(addr, topic)
+                break
 
             if not is_present:
-                self.subscriber_queues[addr]["thread"].stop()
-                self.subscriber_queues[addr]["thread"].join()
-                del self.subscriber_queues[addr]
+                try:
+                    self.subscriber_queues[addr]["thread"].stop()
+                    self.subscriber_queues[addr]["thread"].join()
+                except:
+                    logger.critical("Thread already not existing")
+                try:
+                    del self.subscriber_queues[addr]
+                except KeyError as e:
+                    logger.critical(f"Subscriber {addr} not found in subscriber_queues")
 
             logger.info(f"[MB_SUBSCRIPTION] | Successfully Unsubscribed {addr} from Topic {topic}")
 
@@ -267,23 +288,30 @@ class MessageBroker:
                 message = subscriber_queue.get()
                 # TODO: If message == Type U => TOPIC => UV ELSE TOPIC = TEMP
                 topic = ""
-                message = ast.literal_eval(message)
+                if isinstance(message, str):
+                    try:
+                        message = json.loads(message)
+                    except TypeError:
+                        message = ast.literal_eval(message)
                 if message["sensor_type"] == "S":
                     topic = "TEMP"
                 elif message["sensor_type"] == "U":
                     topic = "UV"
                 self.__broadcast_udp_socket.send_message(json.dumps(message), subscriber)
-                self.delete_from_db_messages_to_send(json.dumps(message), subscriber, topic)
+                self.delete_from_db_messages_to_send(subscriber, topic, json.dumps(message))
                 subscriber_queue.task_done()
 
     def distribute_message_to_list(self, broadcast_list, message, topic):
         for subscriber in broadcast_list:
-            self.subscriber_queues[subscriber]["queue"].put(json.dumps(message))
-            self.insert_to_db_messages_to_send(message, subscriber, topic)
+            try:
+                self.subscriber_queues[subscriber]["queue"].put(json.dumps(message))
+                self.insert_to_db_messages_to_send(message, subscriber, topic)
+            except:
+                logger.debug("Could not find Queue => Subscriber not subscribed")
         self.__sensor_udp_socket.delete_message_from_db(message)
         self.__sensor_udp_socket.message_queue.task_done()
 
-    def delete_from_db_messages_to_send(self, data, subscriber, topic):
+    def delete_from_db_messages_to_send(self, subscriber, topic, data):
         with self.__lock:
             db_connection = sqlite3.connect(self.__database_file)
             db_cursor = db_connection.cursor()
@@ -297,7 +325,21 @@ class MessageBroker:
                 db_cursor.execute("DELETE FROM MessagesToSend WHERE SubscriberID = ? AND Data = ?",
                                   (subscriber_id, data))
                 db_connection.commit()
+            db_cursor.close()
+            db_connection.close()
 
+    def delete_all_from_db_messages_to_send(self, subscriber, topic):
+        with self.__lock:
+            db_connection = sqlite3.connect(self.__database_file)
+            db_cursor = db_connection.cursor()
+            subscriber_id = db_cursor.execute(
+                "SELECT SubscriberID FROM Subscriber WHERE Address = ? AND Port = ? AND Topic = ?",
+                (subscriber[0], subscriber[1], topic)).fetchone()
+            if subscriber_id:
+                subscriber_id = subscriber_id[0]
+                db_cursor.execute("DELETE FROM MessagesToSend WHERE SubscriberID = ?",
+                                  (subscriber_id,))
+                db_connection.commit()
             db_cursor.close()
             db_connection.close()
 
