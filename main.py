@@ -1,3 +1,5 @@
+import time
+
 from classes.message_broker import MessageBroker
 
 from classes.sensor import Sensor
@@ -15,6 +17,19 @@ def main():
                                 subscriber_type="B")  # if i % 3 == 0 else "U" if i % 3 == 1 else "S")
 
 
+def test_subscriber():
+    mb = MessageBroker()
+    sensor = Sensor(sensor_port=5100, sensor_type="U", location="BRM")
+    sensor = Sensor(sensor_port=5102, sensor_type="S", location="BRM")
+    subscriber = Subscriber(subscriber_port=6205, subscriber_type="B")
+    time.sleep(10)
+    subscriber.unsubscribe("UV")
+    time.sleep(10)
+    subscriber.unsubscribe("TEMP")
+    #time.sleep(30)
+    #subscriber.subscribe("UV")
+
+
 #def test_case_1():
 #   mb = MessageBroker()
 #  s1 = Sensor(sensor_port=5100, sensor_type="U", location="BRM")
@@ -24,7 +39,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test_subscriber()
+    # main()
+
 
 #test_case_1()
 
