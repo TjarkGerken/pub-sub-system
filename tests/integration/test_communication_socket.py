@@ -5,10 +5,8 @@ import threading
 import time
 import unittest
 
-import configuration
 from classes.CommunicationProtocol.receiving_communication_protocol_socket import ReceivingCommunicationProtocolSocket
 from classes.CommunicationProtocol.sending_communication_protocol_socket import SendingCommunicationProtocolSocket
-from utils.logger import logger
 from utils.StoppableThread import StoppableThread
 
 
