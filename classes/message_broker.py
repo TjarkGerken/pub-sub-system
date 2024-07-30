@@ -403,8 +403,7 @@ class MessageBroker:
         :return: None
         """
         # Get the thread of the subscriber to check if it is still running
-        thread: StoppableThread = self.subscriber_queues[subscriber]["thread"]
-        while not thread.stopped():
+        while not self.subscriber_queues[subscriber]["thread"].stopped():
             # If the initialization is not done yet, don't perform any actions
             if not self.init_done:
                 continue
@@ -429,6 +428,7 @@ class MessageBroker:
                 else:
                     topic = ""
 
+                # Send the message to the subscriber
                 self.__broadcast_udp_socket.send_message(json.dumps(message), subscriber)
                 self.delete_from_db_messages_to_send(subscriber, topic, json.dumps(message))
 

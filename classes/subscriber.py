@@ -110,7 +110,6 @@ class Subscriber:
     def save_subscriptions_to_config(self) -> None:
         """
         Saves the current configuration of the subscriber to a configuration file to restore from
-
         :return: None
         """
         config_data = {"subscriber_id": self.__subscriber_id, "subscriptions": self.__subscriptions}
@@ -224,6 +223,12 @@ class Subscriber:
             elif message["sensor_type"] == "S":
                 sensor_value = f"{message['temperature']} °C in {message['location']}"
 
+            # Persist received messages to log file (tab separated values)
+            with open(f"logs/{self.__subscriber_id}_messages.tsv", "a") as log_file:
+                values = [str(value) for _, value in message.items()]
+                log_file.write("\t".join(values) + "\n")
+
+            # Delete message from database after processing, so it is not processed again
             logger.info(f"[{self.__subscriber_id}]\tSuccessfully received message: {sensor_value}")
             self.__subscription_udp_socket.delete_message_from_db(message)
 
