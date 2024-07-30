@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS MessageSocketQueue;
+CREATE TABLE MessageSocketQueue (
+    MessageID INTEGER PRIMARY KEY AUTOINCREMENT,
+    Data TEXT
+);

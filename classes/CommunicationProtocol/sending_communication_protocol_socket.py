@@ -38,6 +38,7 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         self.sequence_number = 0
         self.message_queue = queue.Queue()
         self.__lock = threading.Lock()
+        self.set_timeout(1)
 
     def send_message(self, data, address):
         """
@@ -52,27 +53,33 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         start_time = time.time()
         ack_received = False
         while time.time() - start_time < RETRY_DURATION_IN_SECONDS and not ack_received:
-            logger.debug(f"{str('Send Message to ' + str(address)).ljust(50)}(UID: {self.uid} | Seq No. {self.sequence_number} | ACK No. 0 | Data ka: {data})")
+            logger.debug(
+                f"{str('Send Message to ' + str(address)).ljust(50)}(UID: {self.uid} | Seq No. {self.sequence_number} | ACK No. 0 | Data ka: {data})")
             self.send(address, "DATA", self.sequence_number, 0, data)
 
             try:
                 ack = self.cp_socket.recvfrom(1024)
                 if ack[0]:
-                    logger.debug(f"{str('ACK received for message').ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} | ACK No. 1 | Data ka: {data})")
-                    logger.debug(f"{str('Sending ACK for ACK').ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} | ACK No. 2 | Data ka: {data})")
+                    logger.debug(
+                        f"{str('ACK received for message').ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} | ACK No. 1 | Data ka: {data})")
+                    logger.debug(
+                        f"{str('Sending ACK for ACK').ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} | ACK No. 2 | Data ka: {data})")
                     self.send(address, "ACK", self.sequence_number, 2, "ACK")
                     ack_received = True
                     break
             except ConnectionResetError as e:
                 logger.warn(f"Client not reachable, retrying in {SECONDS_BETWEEN_RETRIES} second(s)...")
                 logger.debug(f"Connection reset error | {e}")
+            except TimeoutError as e:
+                logger.debug(f"Timeout error | {e}")
+                pass
             except Exception as e:  # TODO: Specify exception
                 logger.critical("Error sending ACK No.: 2")
 
             # Check if the thread should stop
             # To speed things up, check every 0.1 seconds if signal to stop has been received
-            start_time = time.time()
-            while time.time() - start_time < SECONDS_BETWEEN_RETRIES and not self._stop:
+            sleep_start_time = time.time()
+            while time.time() - sleep_start_time < SECONDS_BETWEEN_RETRIES and not self._stop:
                 time.sleep(0.1)
 
             # If the thread should stop, break the loop
@@ -81,7 +88,8 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         # Display error message if no acknowledement was recieved and was not caused by stop signal
         if not ack_received and not self._stop:
-            logger.error(f"{str('Retries exhausted, message will be dropped').ljust(50)}(UID: {self.uid} | Seq No. {self.sequence_number}) not sent")
+            logger.error(
+                f"{str('Retries exhausted, message will be dropped').ljust(50)}(UID: {self.uid} | Seq No. {self.sequence_number}) not sent")
 
         self.sequence_number += 1
         return ack_received
