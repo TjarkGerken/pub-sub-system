@@ -1,3 +1,7 @@
+"""
+This module provides custom logging formatters for the project
+"""
+
 import logging
 
 from configuration import LOGGING_PADDING
@@ -8,24 +12,27 @@ class BaseFormatter(logging.Formatter):
     Custom logging formatter that extends the standard logging.Formatter class
 
     Attributes:
-        __num_digits : int
-            The number of digits used for padding the custom group string
+        _num_digits : int
+            The number of digits used for padding the custom group (composite information)
     """
-    def __init__(self, fmt):
+
+    def __init__(self, fmt) -> None:
         """
         Initializes the BaseFormatter with a specified format
 
         :param fmt: The logging format string.
+
         :return: None
         """
         super().__init__(fmt)
         self._num_digits = LOGGING_PADDING
 
-    def format(self, record):
+    def format(self, record) -> str:
         """
         Formats the log record as text with additional information
 
         :param record: The log record to be formatted
+
         :return: The formatted log record
         """
         record.custom_group = f"{record.filename}:{record.lineno} - {record.funcName}()".ljust(self._num_digits)
@@ -41,14 +48,18 @@ class ColorFormatter(BaseFormatter):
         formats : dict
             A dictionary that maps the logging levels to their corresponding color codes
     """
-    def __init__(self, fmt):
+
+    def __init__(self, fmt) -> None:
         """
         Initializes the ColorFormatter with a specified format and sets up color codes for different log levels
 
         :param fmt: The logging format string
+
         :return: None
         """
         super().__init__(fmt)
+
+        # ANSI color codes used to display colored messages in console
         grey = "\x1b[0;37m"
         yellow = "\x1b[33;20m"
         red = "\x1b[31;20m"
@@ -56,19 +67,20 @@ class ColorFormatter(BaseFormatter):
         green = "\x1b[32;20m"
         reset = "\x1b[0m"
 
-        self.formats = {
-            logging.DEBUG: grey + fmt + reset,
-            logging.INFO: green + fmt + reset,
-            logging.WARNING: yellow + fmt + reset,
-            logging.ERROR: red + fmt + reset,
-            logging.CRITICAL: bold_red + fmt + reset
-        }
+        # Enclose record with escape sequences used to display colored messages in console
+        self.formats = {logging.DEBUG: grey + fmt + reset,
+                        logging.INFO: green + fmt + reset,
+                        logging.WARNING: yellow + fmt + reset,
+                        logging.ERROR: red + fmt + reset,
+                        logging.CRITICAL: bold_red + fmt + reset
+                        }
 
-    def format(self, record):
+    def format(self, record) -> str:
         """
         Formats the specified record as text, applying color codes based on the log level
 
         :param record: The log record to be formatted
+
         :return: The formatted log record with color codes applied
         """
         record.custom_group = f"{record.filename}:{record.lineno} - {record.funcName}()".ljust(self._num_digits)

@@ -1,3 +1,9 @@
+"""
+This module defines the CommunicationProtocolSocketBase class, which is a base class for the
+SendingCommunicationProtocolSocket and ReceivingCommunicationProtocolSocket classes. It provides the basic functionality
+for sending and receiving messages over a communication protocol socket.
+"""
+
 import time
 import socket
 import threading
@@ -8,6 +14,20 @@ from utils.utils import calculate_checksum
 
 
 class CommunicationProtocolSocketBase:
+    """
+    A base class to represent a communication protocol socket.
+
+    Attributes:
+    ----------
+    uid : str
+        Unique identifier for the instance using the socket (Sensor, MB, Subscriber).
+    port : int
+        Port number to bind the socket.
+    cp_socket : socket.socket
+        The socket object.
+    _stop : bool
+        Flag to stop the socket.
+    """
     def __init__(self, uid: str, port: int) -> None:
         """
         Constructor of the CommunicationProtocolSocket class.
@@ -15,6 +35,7 @@ class CommunicationProtocolSocketBase:
 
         :param uid: Unique identifier for the instance using the socket (Sensor, MB, Subscriber).
         :param port: Port number to bind the socket.
+
         :return: None
         """
         self.uid = uid
@@ -25,10 +46,10 @@ class CommunicationProtocolSocketBase:
 
     def set_timeout(self, timeout: int) -> None:
         """
-        Sets the timeout for the socket
+        Sets the timeout for the socket to be able to gracefully handle thread terminations.
 
-        :param timeout: int
-            The timeout in seconds.
+        :param timeout: The timeout in seconds.
+
         :return: None
         """
         self.cp_socket.settimeout(timeout)
@@ -48,23 +69,32 @@ class CommunicationProtocolSocketBase:
             The acknowledgement number for the packet, default is 0.
         :param data: str, optional
             The data to send in the packet, default is an empty string.
+
         :return: None
         """
+        # Prepare the data to send → When sending an ACK there is no real data to be sent
         if flag == "ACK":
             data = "ACK"
 
+        # Calculate the checksum
         checksum = calculate_checksum(data)
-        data = f"127.0.0.1 | {self.port} | {address[0]} | {address[1]} | {sq_no} | {ack_no} | {checksum} | {self.uid} | {data}".encode()
+        data = (f"127.0.0.1 | {self.port} | {address[0]} | {address[1]} | {sq_no} | {ack_no} | {checksum} | {self.uid} "
+                f"| {data}").encode()
 
         try:
-            # logger.debug(f"{str('Send Data to ' + str(address)).ljust(50)}(UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} | Data ka: {data})")  # TODO: Redundant with log message in sending communication protocol socket
+            # Send the data to the specified endpoint
             self.cp_socket.sendto(data, address)
         except Exception as e:  # TODO: Genauere Exception abfangen
             logger.critical(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} ) | Error : {e} | {address}") # TODO: Remove Error E
             logger.debug(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no}) | Error: {e})")
 
         # TODO: Return status (OK or Error)?
+        return None
 
-    def stop(self):
+    def stop(self) -> None:
+        """
+        Sets the stop flag to True to stop the socket.
+        :return: None
+        """
         self._stop = True
         return None
