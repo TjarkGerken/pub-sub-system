@@ -6,6 +6,7 @@ from classes.sensor import Sensor
 from classes.message_broker import MessageBroker
 from classes.subscriber import Subscriber
 
+
 class TestMessageBrokerIntegration(unittest.TestCase):
 
     @classmethod
@@ -57,6 +58,7 @@ class TestMessageBrokerIntegration(unittest.TestCase):
             cursor.execute("SELECT * FROM Subscriber WHERE Topic = 'UV'")
             result = cursor.fetchone()
             self.assertIsNotNone(result)
+
 
 if __name__ == '__main__':
     unittest.main()
