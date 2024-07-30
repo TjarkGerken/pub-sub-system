@@ -31,9 +31,9 @@ class MessageBroker:
         self.subscriber_queues = {}
         self.__subscribers_uv = []
         self.__subscribers_temp = []
-
         self.subscribers_map = {"UV": self.__subscribers_uv,
             "TEMP": self.__subscribers_temp}  # When adding a topic this needs to be updated
+        self.sequence_number = 0
 
         # Setup Database
         self.init_done = False
@@ -45,11 +45,11 @@ class MessageBroker:
         self.__actions = []
 
         # Setup Sockets
-        self.__sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004, self.__database_file)
+        self._sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004, self.__database_file)
         self.__subscription_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000)
         self.__broadcast_udp_socket = SendingCommunicationProtocolSocket("MB_BROADCAST", 6200)
 
-        self.__actions.append(self.__sensor_udp_socket)
+        self.__actions.append(self._sensor_udp_socket)
         self.__actions.append(self.__subscription_socket)
         self.__actions.append(self.__broadcast_udp_socket)
 
@@ -174,7 +174,7 @@ class MessageBroker:
         Runs the listener for the sensor socket
         :return: None
         """
-        self.__sensor_udp_socket.listener()
+        self._sensor_udp_socket.listener()
         return None
 
     def run_subscription_listener(self) -> None:
@@ -379,10 +379,10 @@ class MessageBroker:
         # Send messages to subscribers as soon as they are available as long as the thread is not stopped
         while not self.__broadcast_thread.stopped():
             # If no messages are available or the initialization is not done yet, don't perform any actions
-            if self.__sensor_udp_socket.message_queue.empty() or not self.init_done:
+            if self._sensor_udp_socket.message_queue.empty() or not self.init_done:
                 continue
 
-            message = self.__sensor_udp_socket.message_queue.get()
+            message = self._sensor_udp_socket.message_queue.get()
             message = ast.literal_eval(message)
 
             # Check to which topic the message belongs to and send it to the subscribers that are subscribed to it
@@ -457,8 +457,9 @@ class MessageBroker:
                 logger.debug(f"Could not find Queue: Subscriber ({subscriber}) not subscribed to topic {topic}")
 
         # Delete the message from the database after it was sent to all subscribers
-        self.__sensor_udp_socket.delete_message_from_db(message)
-        self.__sensor_udp_socket.message_queue.task_done()
+        self._sensor_udp_socket.delete_message_from_db(message)
+        self.sequence_number += 1
+        self._sensor_udp_socket.message_queue.task_done()
 
     def delete_from_db_messages_to_send(self, subscriber: tuple[str, int], topic: str, data: str) -> None:
         """
