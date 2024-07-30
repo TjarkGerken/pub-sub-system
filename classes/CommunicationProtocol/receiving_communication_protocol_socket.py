@@ -5,6 +5,7 @@ import sqlite3
 import threading
 
 from classes.CommunicationProtocol.communication_protocol_socket_base import CommunicationProtocolSocketBase
+from utils.StoppableThread import StoppableThread
 from utils.logger import logger
 from utils.utils import calculate_checksum, remove_if_exists
 
@@ -25,6 +26,8 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         self.message_queue = queue.Queue()
         self.database_file = database_file
         self.__lock = threading.Lock()
+
+        self.set_timeout(1)
 
         if self.database_file:
             self.init_db()
@@ -60,11 +63,24 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         :return: None
         """
         logger.info(f"Listening for incoming messages... (UID: {self.uid})")
-        while True:
-            message, addr = self.cp_socket.recvfrom(1024)
-            logger.debug(f"Message Received from {addr} (UID: {self.uid})")
-            if message:
-                threading.Thread(target=self.handle_message, args=(message,)).start()
+
+        while not self._stop:
+            try:
+                message, addr = self.cp_socket.recvfrom(1024)
+                logger.debug(f"Message Received from {addr} (UID: {self.uid})")
+                if message:
+                    t = StoppableThread(target=self.handle_message, args=(message,))
+                    t.start()
+                    t.stop()
+            except TimeoutError as e:
+                # TODO: Proper documentation
+                # Timeout is reached while waiting for a message
+                # Timeout is important to check if the thread should stop → start listening again
+                continue
+
+        logger.info(f"Stopped listening for incoming messages... (UID: {self.uid})")
+
+        return None
 
     def insert_message_into_db(self, data):
         if self.database_file is None:

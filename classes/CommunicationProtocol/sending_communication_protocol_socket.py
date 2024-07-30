@@ -69,9 +69,18 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
             except Exception as e:  # TODO: Specify exception
                 logger.critical("Error sending ACK No.: 2")
 
-            time.sleep(SECONDS_BETWEEN_RETRIES)
+            # Check if the thread should stop
+            # To speed things up, check every 0.1 seconds if signal to stop has been received
+            start_time = time.time()
+            while time.time() - start_time < SECONDS_BETWEEN_RETRIES and not self._stop:
+                time.sleep(0.1)
 
-        if not ack_received:
+            # If the thread should stop, break the loop
+            if self._stop:
+                break
+
+        # Display error message if no acknowledement was recieved and was not caused by stop signal
+        if not ack_received and not self._stop:
             logger.error(f"{str('Retries exhausted, message will be dropped').ljust(50)}(UID: {self.uid} | Seq No. {self.sequence_number}) not sent")
 
         self.sequence_number += 1

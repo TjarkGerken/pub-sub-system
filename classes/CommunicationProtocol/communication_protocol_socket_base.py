@@ -21,6 +21,18 @@ class CommunicationProtocolSocketBase:
         self.port = port
         self.cp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.cp_socket.bind(("127.0.0.1", self.port))
+        self._stop = False
+
+    def set_timeout(self, timeout: int) -> None:
+        """
+        Sets the timeout for the socket
+
+        :param timeout: int
+            The timeout in seconds.
+        :return: None
+        """
+        self.cp_socket.settimeout(timeout)
+        return None
 
     def send(self, address: tuple, flag: Literal["DATA", "ACK"], sq_no: int, ack_no: int = 0, data: str = "") -> None:
         """
@@ -52,3 +64,7 @@ class CommunicationProtocolSocketBase:
             logger.debug(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no}) | Error: {e})")
 
         # TODO: Return status (OK or Error)?
+
+    def stop(self):
+        self._stop = True
+        return None

@@ -8,12 +8,15 @@ import datetime
 import json
 import queue
 import random
+import signal
 import sqlite3
+import sys
 import threading
 import time
 
 from classes.CommunicationProtocol.sending_communication_protocol_socket import SendingCommunicationProtocolSocket
 from configuration import MAX_SENSOR_INTERVAL_IN_SECONDS
+from utils.StoppableThread import StoppableThread
 from utils.logger import logger
 
 
@@ -62,6 +65,7 @@ class Sensor:
         self.sensor_type = sensor_type
         self.location = location
         self.__sensor_results = queue.Queue()
+        self.__actions = []
         self.__lock = threading.Lock()
 
         # Initialize the database for the sensor
@@ -70,13 +74,22 @@ class Sensor:
 
         # Initialize socket to send messages to the Message broker
         self.__cp_socket = SendingCommunicationProtocolSocket(self.sensor_id, self.sensor_port)
+        self.__actions.append(self.__cp_socket)
         logger.info(
             f"Sensor initialized (UID: {self.sensor_id} | Type: {self.sensor_type} | Location: {self.location})"
         )
 
         # Start threads to generate sensor data and send messages when data is available
-        threading.Thread(target=self.run_sensor).start()
-        threading.Thread(target=self.run_messenger).start()
+        self.__thread_sensor = StoppableThread(target=self.run_sensor)
+        self.__thread_messenger = StoppableThread(target=self.run_messenger)
+
+        # Add threads to the list of actions
+        self.__actions.append(self.__thread_messenger)
+        self.__actions.append(self.__thread_sensor)
+
+        # Start threads
+        self.__thread_sensor.start()
+        self.__thread_messenger.start()
 
     def init_db(self):
         """
@@ -191,15 +204,18 @@ class Sensor:
         return None
 
     def run_sensor(self):
-        while True:
+        while not self.__thread_sensor.stopped():
             self.generate_sensor_result()
             sleep_time = random.randint(1, MAX_SENSOR_INTERVAL_IN_SECONDS)
-            time.sleep(sleep_time)  # TODO: Threading?
+            start_time = time.time()
+            # Wait for the next sensor reading (faster than time.sleep(x) for high x)
+            while time.time() - start_time < sleep_time and not self.__thread_sensor.stopped():
+                time.sleep(0.1)
 
         return None
 
     def run_messenger(self):
-        while True:
+        while not self.__thread_messenger.stopped():
             if self.__sensor_results.empty():
                 continue
 
@@ -221,6 +237,38 @@ class Sensor:
                 db_cursor.close()
                 db_connection.close()
 
+    def stop(self):
+        """
+        Stops all running tasks of the sensor gracefully to shut the sensor down
+
+        :return: None
+        """
+        logger.info(f"Stopping threads for sensor {self.sensor_id}...")
+
+        counter = 0
+        for action in self.__actions:
+            counter += 1
+            if isinstance(action, StoppableThread):
+                logger.debug(f"Stopping thread ({counter}/{len(self.__actions)}) (Thread Name: {action.name})")
+                action.stop()
+                action.join()
+            elif isinstance(action, SendingCommunicationProtocolSocket):
+                logger.debug(f"Stopping thread ({counter}/{len(self.__actions)}) (Socket Name: {action.uid})")
+                action.stop()
+
+        return None
+
+
+def handle_signal(sig, frame):
+    sensor.stop()
+    sys.exit(0)
+
 
 if __name__ == "__main__":
-    Sensor(5001, "U", "BERLIN")
+    sensor = Sensor(5001, "U", "BERLIN")
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    while True:
+        time.sleep(0.1)

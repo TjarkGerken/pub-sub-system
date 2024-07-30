@@ -1,9 +1,13 @@
 import ast
 import json
 import queue
+import signal
+import sys
 import threading
 import sqlite3
+import time
 
+from classes.CommunicationProtocol.communication_protocol_socket_base import CommunicationProtocolSocketBase
 from classes.CommunicationProtocol.receiving_communication_protocol_socket import ReceivingCommunicationProtocolSocket
 from classes.CommunicationProtocol.sending_communication_protocol_socket import SendingCommunicationProtocolSocket
 from utils.StoppableThread import StoppableThread
@@ -37,15 +41,33 @@ class MessageBroker:
         self.__database_file = "database/message_broker.db"
         self.database_init()
 
+        # Setup Actions for signal based stopping
+        self.__actions = []
+
         # Setup Sockets
         self.__sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004, self.__database_file)
         self.__subscription_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000)
         self.__broadcast_udp_socket = SendingCommunicationProtocolSocket("MB_BROADCAST", 6200)
 
-        threading.Thread(target=self.run_sensor_listener).start()
-        threading.Thread(target=self.run_subscription_listener).start()
-        threading.Thread(target=self.run_subscription_handler).start()
-        threading.Thread(target=self.run_broadcast).start()
+        self.__actions.append(self.__sensor_udp_socket)
+        self.__actions.append(self.__subscription_socket)
+        self.__actions.append(self.__broadcast_udp_socket)
+
+        # Setup Threads
+        self.__sensor_listener_thread = StoppableThread(target=self.run_sensor_listener)
+        self.__subscription_listener_thread = StoppableThread(target=self.run_subscription_listener)
+        self.__subscription_handler_thread = StoppableThread(target=self.run_subscription_handler)
+        self.__broadcast_thread = StoppableThread(target=self.run_broadcast)
+
+        self.__sensor_listener_thread.start()
+        self.__subscription_listener_thread.start()
+        self.__subscription_handler_thread.start()
+        self.__broadcast_thread.start()
+
+        self.__actions.append(self.__broadcast_thread)
+        self.__actions.append(self.__sensor_listener_thread)
+        self.__actions.append(self.__subscription_listener_thread)
+        self.__actions.append(self.__subscription_handler_thread)
 
         self.init_done = True
 
@@ -122,16 +144,18 @@ class MessageBroker:
 
     def run_sensor_listener(self):
         self.__sensor_udp_socket.listener()
+        return None
 
     def run_subscription_listener(self):
         self.__subscription_socket.listener()
+        return None
 
     def run_subscription_handler(self):
-        while True:
+        while not self.__subscription_handler_thread.stopped():
             if self.__subscription_socket.message_queue.empty() or not self.init_done:
                 continue
             result = self.__subscription_socket.message_queue.get()
-            threading.Thread(target=self.handle_subscription_message, args=(result,)).start()
+            StoppableThread(target=self.handle_subscription_message, args=(result,)).start()
 
     def handle_subscription_message(self, data):
         try:
@@ -241,7 +265,7 @@ class MessageBroker:
         return None
 
     def run_broadcast(self):
-        while True:
+        while not self.__broadcast_thread.stopped():
             if self.__sensor_udp_socket.message_queue.empty() or not self.init_done:
                 continue
 
@@ -338,6 +362,42 @@ class MessageBroker:
             db_cursor.close()
             db_connection.close()
 
+    def stop(self):
+        """
+        Stops all running tasks of the sensor gracefully to shut the message broker down
+
+        :return: None
+        """
+        logger.info(f"Shutting down Message Broker")
+
+        # Collect all threads because each subscriber has its own thread
+        for subscriber in self.subscriber_queues:
+            self.__actions.append(self.subscriber_queues[subscriber]["thread"])
+
+        counter = 0
+        for action in self.__actions:
+            counter += 1
+            if isinstance(action, StoppableThread):
+                logger.info(f"Stopping thread ({counter}/{len(self.__actions)}) (Thread Name: {action.name})")
+                action.stop()
+                action.join()
+            elif isinstance(action, CommunicationProtocolSocketBase):
+                logger.info(f"Stopping thread ({counter}/{len(self.__actions)}) (Socket Name: {action.uid})")
+                action.stop()
+
+        return None
+
+
+def handle_signal(sig, frame):
+    mb.stop()
+    sys.exit(0)
+
 
 if __name__ == "__main__":
-    MessageBroker()
+    mb = MessageBroker()
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    while True:
+        time.sleep(0.1)

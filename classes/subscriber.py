@@ -1,13 +1,17 @@
 import json
 import os
 import queue
+import signal
+import sys
 import threading
 import time
 from json import JSONDecodeError
 from typing import Literal
 
+from classes.CommunicationProtocol.communication_protocol_socket_base import CommunicationProtocolSocketBase
 from classes.CommunicationProtocol.receiving_communication_protocol_socket import ReceivingCommunicationProtocolSocket
 from classes.CommunicationProtocol.sending_communication_protocol_socket import SendingCommunicationProtocolSocket
+from utils.StoppableThread import StoppableThread
 from utils.logger import logger
 
 
@@ -16,23 +20,39 @@ class Subscriber:
         if subscriber_type not in ["U", "S", "B"]:
             raise ValueError("Sensor  type must be either 'U' or 'S' or 'B'")
 
+        # Subscriber info
         self.__subscriber_port = subscriber_port
         self.__subscriber_type = subscriber_type
         self.__subscriber_id = f"SUBSCRIBER_{subscriber_type}_{subscriber_port}"
         self.__database_file = f"database/{self.__subscriber_id}.db"
         self.__subscriptions = []
         self.__config_file_path = f"config/{self.__subscriber_id}.json"
+        self.__actions = []
 
         # Socket
         self.__subscription_socket = SendingCommunicationProtocolSocket(self.__subscriber_id, subscriber_port + 1)
         self.__subscription_udp_socket = ReceivingCommunicationProtocolSocket(self.__subscriber_id, subscriber_port,
                                                                               self.__database_file)
 
-        # Subscribe to the message broker on the appropriate ports
-        self.initiate_subscription()
+        try:
+            # Subscribe to the message broker on the appropriate ports
+            self.initiate_subscription()
+        except KeyboardInterrupt:
+            # Because subscriber is not initialized yet, we need to stop it manually
+            self.stop()
+            sys.exit(0)
 
-        threading.Thread(target=self.run_logger).start()
-        threading.Thread(target=self.__subscription_udp_socket.listener).start()
+        self.__logger_thread = StoppableThread(target=self.run_logger)
+        self.__subscription_listener_thread = StoppableThread(target=self.__subscription_udp_socket.listener)
+
+        self.__logger_thread.start()
+        self.__subscription_listener_thread.start()
+
+        # Store all threads and sockets in a list to stop them gracefully later
+        self.__actions.append(self.__subscription_udp_socket)
+        self.__actions.append(self.__subscription_socket)
+        self.__actions.append(self.__logger_thread)
+        self.__actions.append(self.__subscription_listener_thread)
 
         logger.info("Subscriber Started")
 
@@ -87,7 +107,7 @@ class Subscriber:
 
     def run_logger(self):
         sensor_value = ""
-        while True:
+        while not self.__logger_thread.stopped():
             if self.__subscription_udp_socket.message_queue.empty():
                 continue
 
@@ -106,8 +126,39 @@ class Subscriber:
 
             logger.info(f"[{self.__subscriber_id}]\tSuccessfully received message: {sensor_value}")
             self.__subscription_udp_socket.delete_message_from_db(message)
-            #time.sleep(0.01)  # TODO: use Threading?
+
+    def stop(self):
+        """
+        Stops all running tasks of the sensor gracefully to shut the message broker down
+
+        :return: None
+        """
+        logger.info(f"Shutting down {self.__subscriber_id}")
+
+        counter = 0
+        for action in self.__actions:
+            counter += 1
+            if isinstance(action, StoppableThread):
+                logger.info(f"Stopping thread ({counter}/{len(self.__actions)}) (Thread Name: {action.name})")
+                action.stop()
+                action.join()
+            elif isinstance(action, CommunicationProtocolSocketBase):
+                logger.info(f"Stopping thread ({counter}/{len(self.__actions)}) (Socket Name: {action.uid})")
+                action.stop()
+
+        return None
+
+
+def handle_signal(sig, frame):
+    subscriber.stop()
+    sys.exit(0)
 
 
 if __name__ == "__main__":
-    Subscriber(6202, "B")
+    subscriber = Subscriber(6202, "B")
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    while True:
+        time.sleep(0.1)
