@@ -1,0 +1,4 @@
+CREATE TABLE MessagesToSend (
+    MessageID INTEGER PRIMARY KEY AUTOINCREMENT,
+    Data TEXT
+);
