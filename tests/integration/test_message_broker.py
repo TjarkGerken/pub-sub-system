@@ -8,6 +8,7 @@ import json
 from classes.message_broker import MessageBroker
 from classes.sensor import Sensor
 from classes.subscriber import Subscriber
+from utils.delete_files_and_folders import delete_files_and_folders
 from utils.logger import logger
 
 
@@ -15,7 +16,13 @@ class TestMessageBrokerIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.__lock = threading.Lock()
-
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Deletes the database after the tests are done.
+        :return:
+        """
+        delete_files_and_folders()
     def test_mb_reboot_sensor_data_consistency(self):
         """
         Tests if the data stays consistent after the message broker shutdowns and reboots.
@@ -26,6 +33,8 @@ class TestMessageBrokerIntegration(unittest.TestCase):
 
         :return: None
         """
+        delete_files_and_folders()
+
         mb = MessageBroker()
         offset = mb.sequence_number
 
@@ -68,19 +77,8 @@ class TestMessageBrokerIntegration(unittest.TestCase):
 
         :return: None
         """
-        with self.__lock:
-            filenames = [
-                "database/message_broker.db",
-                "database/message_broker_sub.db",
-                "database/SUBSCRIBER_B_5005.db",
-                "config/SUBSCRIBER_B_5005.json",
-                "config/message_broker.json"
-            ]
+        delete_files_and_folders()
 
-            # Iterate over the list of filenames and delete each file if it exists
-            for filename in filenames:
-                if os.path.exists(filename):
-                    os.remove(filename)
         test_data = [
             {
                 "sensor_id": "SENSOR_BRM_U_50001",
@@ -127,17 +125,6 @@ class TestMessageBrokerIntegration(unittest.TestCase):
 
         time.sleep(10)
 
-        with self.__lock:
-            db_connection = sqlite3.connect(mb._database_file)
-            db_cursor = db_connection.cursor()
-            logger.warning(f"Insert {json.dumps(test_data[1])}")
-            db_cursor.execute("INSERT INTO MessageSocketQueue (data) VALUES(?)", (json.dumps(test_data[1]),))
-            db_connection.commit()
-            db_cursor.close()
-            db_connection.close()
-
-        time.sleep(5)
-
         mb = MessageBroker()
 
         time.sleep(5)
@@ -157,6 +144,3 @@ class TestMessageBrokerIntegration(unittest.TestCase):
         self.assertEqual(2,
                          len(items),
                          "The subscriber didn't receive all messages.")
-
-
-

@@ -7,6 +7,7 @@ import unittest
 from classes.message_broker import MessageBroker
 from classes.sensor import Sensor
 from classes.subscriber import Subscriber
+from utils.delete_files_and_folders import delete_files_and_folders
 
 
 class TestSubscriberIntegration(unittest.TestCase):
@@ -14,6 +15,14 @@ class TestSubscriberIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.__lock = threading.Lock()
+
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Deletes the database after the tests are done.
+        :return:
+        """
+        delete_files_and_folders()
 
     def test_data_consistency_on_reboot(self):
         """
@@ -26,6 +35,7 @@ class TestSubscriberIntegration(unittest.TestCase):
 
         :return: None
         """
+        delete_files_and_folders()
         mb = MessageBroker()
         subscriber = Subscriber(50005, "U")
         sensor = Sensor(50004, "U", "BRM")
@@ -67,6 +77,7 @@ class TestSubscriberIntegration(unittest.TestCase):
 
         :return:
         """
+        delete_files_and_folders()
 
         mb = MessageBroker()
         subscriber = Subscriber(50005, "B")
@@ -115,21 +126,9 @@ class TestSubscriberIntegration(unittest.TestCase):
 
         :return:
         """
-        with self.__lock:
-            filenames = [
-                "database/message_broker.db",
-                "database/message_broker_sub.db",
-                "database/SENSOR_BRM_S_50032.db",
-                "database/SENSOR_BRM_U_50004.db",
-                "database/SUBSCRIBER_U_50005.db",
-                "config/SUBSCRIBER_U_50005.json",
-                "config/message_broker.json"
-            ]
+        delete_files_and_folders()
 
-            # Iterate over the list of filenames and delete each file if it exists
-            for filename in filenames:
-                if os.path.exists(filename):
-                    os.remove(filename)
+        time.sleep(2)
 
         mb = MessageBroker()
 

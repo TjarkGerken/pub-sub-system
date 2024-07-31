@@ -9,20 +9,13 @@ import unittest
 from classes.CommunicationProtocol.receiving_communication_protocol_socket import ReceivingCommunicationProtocolSocket
 from classes.CommunicationProtocol.sending_communication_protocol_socket import SendingCommunicationProtocolSocket
 from utils.StoppableThread import StoppableThread
-
-
+from utils.delete_files_and_folders import delete_files_and_folders
 
 
 class TestCommunicationIntegration(unittest.TestCase):
     """
     Integration tests for the communication protocol between client and server.
     """
-    def delete_files(self, array: [str]):
-        with self.__lock:
-            # Iterate over the list of filenames and delete each file if it exists
-            for filename in array:
-                if os.path.exists(filename):
-                    os.remove(filename)
 
     def database_init(self):
         """
@@ -57,6 +50,14 @@ class TestCommunicationIntegration(unittest.TestCase):
         """
         cls.__lock = threading.RLock()
 
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Deletes the database after the tests are done.
+        :return:
+        """
+        delete_files_and_folders()
+
     def test_send_data(self):
         """
         Tests the sending of data from the client to the server in a regular scenario.
@@ -66,7 +67,7 @@ class TestCommunicationIntegration(unittest.TestCase):
         client sequence number is incremented correctly and that the messages are stored in the database.
         :return: None
         """
-        self.delete_files(["database/message_broker.db"])
+        delete_files_and_folders()
         self.database_init()
         client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5002)
         server = ReceivingCommunicationProtocolSocket("RECEIVING_SOCKET", 6002, "database/message_broker.db")
@@ -138,7 +139,7 @@ class TestCommunicationIntegration(unittest.TestCase):
 
             :return: None
             """
-        self.delete_files(["database/message_broker.db"])
+        delete_files_and_folders()
         self.database_init()
         client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 50044)
         server = ReceivingCommunicationProtocolSocket("RECEIVING_SOCKET", 60044, "database/message_broker.db")
@@ -185,7 +186,7 @@ class TestCommunicationIntegration(unittest.TestCase):
 
             :return:
             """
-        self.delete_files(["database/message_broker.db"])
+        delete_files_and_folders()
         self.database_init()
 
         client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 50400)

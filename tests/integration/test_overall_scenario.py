@@ -3,10 +3,20 @@ from unittest import TestCase
 from classes.message_broker import MessageBroker
 from classes.sensor import Sensor
 from classes.subscriber import Subscriber
+from utils.delete_files_and_folders import delete_files_and_folders
 
 
 class TestOverallScenario(TestCase):
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Deletes the database after the tests are done.
+        :return:
+        """
+        delete_files_and_folders()
     def init(self, SEN_NO, SUB_NO):
+        delete_files_and_folders()
+
         # Create message broker
         mb = MessageBroker()
         sensors = []
