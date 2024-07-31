@@ -33,7 +33,7 @@ class MessageBroker:
         self.__subscribers_uv = []
         self.__subscribers_temp = []
         self.subscribers_map = {"UV": self.__subscribers_uv,
-            "TEMP": self.__subscribers_temp}  # When adding a topic this needs to be updated
+                                "TEMP": self.__subscribers_temp}  # When adding a topic this needs to be updated
         self.sequence_number = 0
 
         # Setup Database
@@ -49,9 +49,9 @@ class MessageBroker:
 
         # Setup Sockets
         self._sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004, self._database_file)
-        self.__subscription_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000, "database/message_broker_sub.db")
+        self.__subscription_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000,
+                                                                          "database/message_broker_sub.db")
         self.__broadcast_udp_socket = SendingCommunicationProtocolSocket("MB_BROADCAST", 6200)
-
 
         # Setup Threads
         self.__sensor_listener_thread = StoppableThread(target=self.run_sensor_listener)
@@ -99,7 +99,6 @@ class MessageBroker:
         # Save config as json
         with open(self.__config_file_path, "w") as config_file:
             json.dump(config_data, config_file, indent=4)
-
 
     def database_init(self) -> None:
         """
@@ -187,7 +186,7 @@ class MessageBroker:
             # Create a new queue for each subscriber so that they can receive messages dependently from each other and
             # don't hinder other subscribers from receiving messages while paying attention to the order of the messages
             self.subscriber_queues[addr] = {"queue": queue.Queue(),
-                "thread": StoppableThread(target=self.broadcast_message, args=(addr,))}
+                                            "thread": StoppableThread(target=self.broadcast_message, args=(addr,))}
 
             # Prefill the subscriber's queue with messages from the database and start the thread to send the messages
             # when available
@@ -264,7 +263,7 @@ class MessageBroker:
             # Insert subscriber to the database
             self.insert_to_db_subscriber(addr, topic)
             # Append the subscriber to the list of subscribers that are subscribed to the topic
-            if  addr not in self.subscribers_map[topic]:
+            if addr not in self.subscribers_map[topic]:
                 self.subscribers_map[topic].append(addr)  # TODO: IF ERROR MAYBE IT OCCURS HERE :)
 
             message = f"{topic}"
@@ -272,7 +271,7 @@ class MessageBroker:
             # If the subscriber does not already have a queue, create a one alongside a thread for the subscriber
             if addr not in self.subscriber_queues:
                 self.subscriber_queues[addr] = {"queue": queue.Queue(),
-                    "thread": StoppableThread(target=self.broadcast_message, args=(addr,))}
+                                                "thread": StoppableThread(target=self.broadcast_message, args=(addr,))}
                 self.subscriber_queues[addr]["thread"].start()
 
             logger.info(f"[MB_SUBSCRIPTION] | Successfully Subscribed {addr} to Topic {message}")
@@ -315,6 +314,8 @@ class MessageBroker:
                                 self.subscriber_queues[addr]["queue"].put(message)
                             elif message["sensor_type"] == "U" and topic == "TEMP" and is_present:
                                 self.subscriber_queues[addr]["queue"].put(json.dumps(message))
+                            else:
+                                logger.critical(f"Dropping {message}")
 
                             old_queue.task_done()
 
@@ -362,7 +363,7 @@ class MessageBroker:
 
             # Remove the subscriber from the database
             subscriber_id = db_cursor.execute("DELETE FROM Subscriber WHERE Address = ? AND Port = ? AND Topic = ?",
-                (addr[0], addr[1], topic))
+                                              (addr[0], addr[1], topic))
             db_connection.commit()
 
             # Close the database connection
