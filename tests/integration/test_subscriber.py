@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import threading
 import time
@@ -6,6 +7,7 @@ import unittest
 from classes.message_broker import MessageBroker
 from classes.sensor import Sensor
 from classes.subscriber import Subscriber
+from utils.delete_files_and_folders import delete_files_and_folders
 
 
 class TestSubscriberIntegration(unittest.TestCase):
@@ -13,6 +15,13 @@ class TestSubscriberIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.__lock = threading.Lock()
+
+    def tearDown(self):
+        """
+        Deletes the database after the tests are done.
+        :return:
+        """
+        delete_files_and_folders()
 
     def test_data_consistency_on_reboot(self):
         """
@@ -25,6 +34,7 @@ class TestSubscriberIntegration(unittest.TestCase):
 
         :return: None
         """
+        delete_files_and_folders()
         mb = MessageBroker()
         subscriber = Subscriber(50005, "U")
         sensor = Sensor(50004, "U", "BRM")
@@ -66,6 +76,7 @@ class TestSubscriberIntegration(unittest.TestCase):
 
         :return:
         """
+        delete_files_and_folders()
 
         mb = MessageBroker()
         subscriber = Subscriber(50005, "B")
@@ -114,20 +125,15 @@ class TestSubscriberIntegration(unittest.TestCase):
 
         :return:
         """
-        with self.__lock:
-            db_connection = sqlite3.connect("database/message_broker.db")
-            db_cursor = db_connection.cursor()
-            db_cursor.execute("DELETE FROM MessageSocketQueue")
-            db_cursor.execute("DELETE FROM Subscriber")
-            db_connection.commit()
-            db_cursor.close()
-            db_connection.close()
+        delete_files_and_folders()
 
         time.sleep(2)
 
         mb = MessageBroker()
 
         subscriber = Subscriber(50005, "U", log=False, ignore_startup=True)
+        time.sleep(5)
+
         sensor_u = Sensor(50004, "U", "BRM", generate=False)
         sensor_s = Sensor(50032, "S", "BRM", generate=False)
         time.sleep(2)
@@ -137,7 +143,7 @@ class TestSubscriberIntegration(unittest.TestCase):
         time.sleep(10)
         subscriber.subscribe("TEMP")
         time.sleep(10)
-        sensor_u.generate_sensor_result()  # 2 => Should Arrive does not
+        sensor_u.generate_sensor_result()  # 2
         time.sleep(2)
         sensor_s.generate_sensor_result()  # 3
         time.sleep(10)
@@ -145,7 +151,7 @@ class TestSubscriberIntegration(unittest.TestCase):
         time.sleep(10)
         sensor_u.generate_sensor_result()  # 3
         time.sleep(2)
-        sensor_s.generate_sensor_result()  # 4 => Should Arrive does not
+        sensor_s.generate_sensor_result()  # 4
         time.sleep(10)
 
         with self.__lock:
