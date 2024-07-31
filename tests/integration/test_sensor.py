@@ -63,7 +63,6 @@ class TestCommunicationIntegration(unittest.TestCase):
         sensor.stop()
 
         self.assertEqual(messages, messages_after_reboot, "The messages in the database are not the same after reboot.")
-        # + 1 because one element has been taken out of the queue for sending and is added back to the queue after the reboot
         self.assertEqual(sensor_message_queue.qsize(), sensor_message_queue_after_reboot.qsize(),
                          "The messages in the queue are not the same after reboot.")
 

@@ -165,6 +165,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
         try:
             # Lock the resources to ensure thread safety
+            self.delete_checksum_from_db(uid)
             with self.__lock:
                 # Connect to the database
                 db_connection = sqlite3.connect(self.database_file)

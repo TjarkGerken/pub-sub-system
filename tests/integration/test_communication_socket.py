@@ -107,8 +107,8 @@ class TestCommunicationIntegration(unittest.TestCase):
 
             :return: None
             """
-        client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5003)
-        server = ReceivingCommunicationProtocolSocket("RECEIVING_SOCKET", 6003, "database/message_broker.db")
+        client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5004)
+        server = ReceivingCommunicationProtocolSocket("RECEIVING_SOCKET", 6004, "database/message_broker.db")
         with self.__lock:
             db_connection = sqlite3.connect(server.database_file)
             db_cursor = db_connection.cursor()
@@ -125,7 +125,7 @@ class TestCommunicationIntegration(unittest.TestCase):
             server.listener()
 
         def send_message():
-            client.send_message(message, ("127.0.0.1", 6003))
+            client.send_message(message, ("127.0.0.1", 6004))
 
         listener_thread = StoppableThread(target=run_listener)
         send_thread = StoppableThread(target=send_message).start()
