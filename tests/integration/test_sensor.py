@@ -23,8 +23,8 @@ class TestCommunicationIntegration(unittest.TestCase):
         """
         cls.__lock = threading.Lock()
 
-    @classmethod
-    def tearDownClass(cls):
+
+    def tearDown(self):
         """
         Deletes the database after the tests are done.
         :return:
