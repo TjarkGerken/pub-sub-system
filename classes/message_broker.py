@@ -39,7 +39,7 @@ class MessageBroker:
         # Setup Database
         self.init_done = False
         self.__lock = threading.Lock()
-        self.__database_file = "database/message_broker.db"
+        self._database_file = "database/message_broker.db"
         self.__config_file_path = "config/message_broker.json"
         self.database_init()
         self.get_sequence_no_from_config()
@@ -48,7 +48,7 @@ class MessageBroker:
         self.__actions = []
 
         # Setup Sockets
-        self._sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004, self.__database_file)
+        self._sensor_udp_socket = ReceivingCommunicationProtocolSocket("MB_SENSOR", 5004, self._database_file)
         self.__subscription_socket = ReceivingCommunicationProtocolSocket("MB_SUBSCRIPTION", 6000, "database/message_broker_sub.db")
         self.__broadcast_udp_socket = SendingCommunicationProtocolSocket("MB_BROADCAST", 6200)
 
@@ -107,7 +107,7 @@ class MessageBroker:
         :return: None
         """
         # Create the database if it does not exist and connect to it
-        db_connection = sqlite3.connect(self.__database_file)
+        db_connection = sqlite3.connect(self._database_file)
         db_cursor = db_connection.cursor()
 
         # Execute DDL script to create tables if not already exist
@@ -136,7 +136,7 @@ class MessageBroker:
         # Lock the database to prevent conflicts with other threads
         with self.__lock:
             # Connect to the database
-            db_connection = sqlite3.connect(self.__database_file, )
+            db_connection = sqlite3.connect(self._database_file, )
             db_cursor = db_connection.cursor()
 
             # Get all messages that were not sent yet
@@ -162,7 +162,7 @@ class MessageBroker:
         # Lock the database to prevent conflicts with other threads
         with self.__lock:
             # Connect to the database
-            db_connection = sqlite3.connect(self.__database_file)
+            db_connection = sqlite3.connect(self._database_file)
             db_cursor = db_connection.cursor()
 
             # Get all subscribers from the database
@@ -357,7 +357,7 @@ class MessageBroker:
         # Lock the database to prevent conflicts with other threads
         with self.__lock:
             # Connect to the database
-            db_connection = sqlite3.connect(self.__database_file)
+            db_connection = sqlite3.connect(self._database_file)
             db_cursor = db_connection.cursor()
 
             # Remove the subscriber from the database
@@ -383,7 +383,7 @@ class MessageBroker:
         # Lock the database to prevent conflicts with other threads
         with self.__lock:
             # Connect to the database
-            db_connection = sqlite3.connect(self.__database_file)
+            db_connection = sqlite3.connect(self._database_file)
             db_cursor = db_connection.cursor()
 
             try:
@@ -506,7 +506,7 @@ class MessageBroker:
         # Lock the database to prevent conflicts with other threads
         with self.__lock:
             # Connect to the database
-            db_connection = sqlite3.connect(self.__database_file)
+            db_connection = sqlite3.connect(self._database_file)
             db_cursor = db_connection.cursor()
 
             # Get the subscriber ID of the specified subscriber from the database
@@ -544,7 +544,7 @@ class MessageBroker:
         # Lock the database to prevent conflicts with other threads
         with self.__lock:
             # Connect to the database
-            db_connection = sqlite3.connect(self.__database_file)
+            db_connection = sqlite3.connect(self._database_file)
             db_cursor = db_connection.cursor()
 
             # Get the subscriber ID of the specified subscriber from the database
@@ -582,7 +582,7 @@ class MessageBroker:
         # Lock the database to prevent conflicts with other threads
         with self.__lock:
             # Connect to the database
-            db_connection = sqlite3.connect(self.__database_file)
+            db_connection = sqlite3.connect(self._database_file)
             db_cursor = db_connection.cursor()
 
             # Get the subscriber ID of the specified subscriber from the database

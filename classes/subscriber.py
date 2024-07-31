@@ -31,7 +31,7 @@ class Subscriber:
         A unique identifier for the subscriber
     __subscriptions : list
         A list of topics subscribed to
-    __database_file : str
+    _database_file : str
         The path to the database file
     __config_file_path : str
         The path to the configuration file for the subscriber
@@ -39,7 +39,7 @@ class Subscriber:
         The list of actions (threads and sockets) to be stopped gracefully
     __subscription_socket: SendingCommunicationProtocolSocket
         The socket used for sending subscription messages
-    __subscription_udp_socket: ReceivingCommunicationProtocolSocket
+    _subscription_udp_socket: ReceivingCommunicationProtocolSocket
         The socket used for receiving subscription messages
     __logger_thread : StoppableThread
         The thread for logging messages
@@ -62,14 +62,14 @@ class Subscriber:
         self.__subscriber_type = subscriber_type
         self.__subscriber_id = f"SUBSCRIBER_{subscriber_type}_{subscriber_port}"
         self.__subscriptions = []
-        self.__database_file = f"database/{self.__subscriber_id}.db"
+        self._database_file = f"database/{self.__subscriber_id}.db"
         self.__config_file_path = f"config/{self.__subscriber_id}.json"
         self.__actions = []
 
         # Socket
         self.__subscription_socket = SendingCommunicationProtocolSocket(self.__subscriber_id, subscriber_port + 1)
-        self.__subscription_udp_socket = ReceivingCommunicationProtocolSocket(self.__subscriber_id, subscriber_port,
-                                                                              self.__database_file)
+        self._subscription_udp_socket = ReceivingCommunicationProtocolSocket(self.__subscriber_id, subscriber_port,
+                                                                             self._database_file)
 
         try:
             # Subscribe to the message broker on the appropriate ports
@@ -80,13 +80,13 @@ class Subscriber:
             sys.exit(0)
 
         self.__logger_thread = StoppableThread(target=self.run_logger)
-        self.__subscription_listener_thread = StoppableThread(target=self.__subscription_udp_socket.listener)
+        self.__subscription_listener_thread = StoppableThread(target=self._subscription_udp_socket.listener)
 
         self.__logger_thread.start()
         self.__subscription_listener_thread.start()
 
         # Store all threads and sockets in a list to stop them gracefully later
-        self.__actions.append(self.__subscription_udp_socket)
+        self.__actions.append(self._subscription_udp_socket)
         self.__actions.append(self.__subscription_socket)
         self.__actions.append(self.__logger_thread)
         self.__actions.append(self.__subscription_listener_thread)
@@ -204,10 +204,10 @@ class Subscriber:
         # Run until the logger thread is stopped
         while not self.__logger_thread.stopped():
             # If there are no messages in the queue, continue
-            if self.__subscription_udp_socket.message_queue.empty():
+            if self._subscription_udp_socket.message_queue.empty():
                 continue
 
-            message = self.__subscription_udp_socket.message_queue.get()
+            message = self._subscription_udp_socket.message_queue.get()
             try:
                 # Convert message to JSON
                 message = message.replace("'", '"')
@@ -230,7 +230,7 @@ class Subscriber:
 
             # Delete message from database after processing, so it is not processed again
             logger.info(f"[{self.__subscriber_id}]\tSuccessfully received message: {sensor_value}")
-            self.__subscription_udp_socket.delete_message_from_db(message)
+            self._subscription_udp_socket.delete_message_from_db(message)
 
         return None
 
