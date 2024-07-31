@@ -20,6 +20,7 @@ class TestCommunicationIntegration(unittest.TestCase):
     def database_init(self):
         """
         Initializes the SQLite database by replacing them with new ones to ensure no data is left from previous runs.
+        :return: None
         """
         # Create the database if it does not exist and connect to it
         with self.__lock:
@@ -29,33 +30,38 @@ class TestCommunicationIntegration(unittest.TestCase):
             # Ensure the directory exists
             if not os.path.exists(db_dir):
                 os.makedirs(db_dir)
+
+            # Connect to database
             db_connection = sqlite3.connect(db_path)
             db_cursor = db_connection.cursor()
 
-            # Execute DDL script to create tables if not already exist
+            # Execute DDL statements to create tables if not already exist
             with open("database/ddl_mb.sql", "r") as ddl_file:
                 db_cursor.executescript(ddl_file.read())
                 db_connection.commit()
 
+            # Close database connection
             db_cursor.close()
             db_connection.close()
-            return None
 
+            return None
 
     @classmethod
     def setUpClass(cls):
         """
         Initializes the database and introduces a lock for the test.
-        :return:
+        :return: None
         """
         cls.__lock = threading.RLock()
+        return None
 
     def tearDown(self):
         """
-        Deletes the database after the tests are done.
-        :return:
+        Perform clean after test
+        :return: None
         """
         delete_files_and_folders()
+        return None
 
     def test_send_data(self):
         """
@@ -66,6 +72,7 @@ class TestCommunicationIntegration(unittest.TestCase):
         client sequence number is incremented correctly and that the messages are stored in the database.
         :return: None
         """
+        
         delete_files_and_folders()
         self.database_init()
         client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5002)
