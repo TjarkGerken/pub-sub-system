@@ -38,6 +38,7 @@ class TestCommunicationIntegration(unittest.TestCase):
     """
     Integration tests for the communication protocol between client and server.
     """
+
     @classmethod
     def setUpClass(cls):
         """
@@ -139,7 +140,6 @@ class TestCommunicationIntegration(unittest.TestCase):
         server.stop()
         self.assertEqual(received_message, message, "Expected message to be received by the server")
         self.assertEqual(sq_number, 1, "Expected client sequence number to be 1")
-
 
     def test_duplicate_messages(self):
         """
