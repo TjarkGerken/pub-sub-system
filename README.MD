@@ -48,6 +48,10 @@ In order to ensure persistence we used databases storing the to be send data so 
 The sensor will store it's acquried data in a database before transmition. Once the sensor recieved the acknowledgement of the messagebroker, the piece of data, identified by the checksum, will be deleted from the database table.
 
 The same logic applies to the data transmition process between the messagebroker and the subscribers.
+
+### Application schema
+
+Extended information of the execution order can be found in the figure below and the code documentation
   
 ## Execution
 
