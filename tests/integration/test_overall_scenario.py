@@ -8,6 +8,10 @@ from utils.delete_files_and_folders import delete_files_and_folders
 
 
 class TestOverallScenario(TestCase):
+    """
+    Integration test over all components.
+    """
+
     def manual_tear_down(self):
         """
         Deletes the database after the tests are done.
