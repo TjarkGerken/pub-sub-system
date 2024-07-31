@@ -6,7 +6,7 @@ Definition of configurations for components
 # Maximum duration to wait for a message to be sent successfully
 RETRY_DURATION_IN_SECONDS = 300
 # Duration to wait before retrying to send a failed request in seconds
-SECONDS_BETWEEN_RETRIES = 5
+SECONDS_BETWEEN_RETRIES = 15
 
 # Logging
 # Severity level (choose from 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
