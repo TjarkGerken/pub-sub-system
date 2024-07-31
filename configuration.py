@@ -4,7 +4,7 @@ Definition of configurations for components
 
 # Communication Protocol
 # Maximum duration to wait for a message to be sent successfully
-RETRY_DURATION_IN_SECONDS = 15
+RETRY_DURATION_IN_SECONDS = 300
 # Duration to wait before retrying to send a failed request in seconds
 SECONDS_BETWEEN_RETRIES = 5
 
