@@ -53,13 +53,12 @@ class Sensor:
     def __init__(self, sensor_port: int, sensor_type: str, location: str, generate: bool = True):
         """
         Initializes the sensor with the given port, type and location and starts the threads to generate sensor data and
-         communicate with the message broker.
+        communicate with the message broker.
 
         :param sensor_port: The port number of the sensor
         :param sensor_type: The type of the sensor ('U' for UV, 'S' for temperature)
         :param location: The location of the sensor
         :param generate: Whether the sensor should generate data or not
-        :raise ValueError: If the sensor type is neither 'U' nor 'S'
 
         :return: Sensor object
 

@@ -321,7 +321,6 @@ class MessageBroker:
                 # sent yet
                 self.delete_all_from_db_messages_to_send(addr, topic)
                 self.remove_from_db_subscriber(addr, topic)
-                break
 
             # If the subscriber is not subscribed to any other topic, stop the thread for sending messages and remove
             # the subscriber from the list of subscribers

@@ -74,7 +74,6 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 # Wait for an ACK from the client
                 ack = self.cp_socket.recvfrom(1024)
                 if ack[0]:
-                    logger.critical(f"ACK received: {ack[0]}")
                     logger.debug(
                         f"{str('ACK received for message').ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} |"
                         f" ACK No. 1 | Data ka: {data})")

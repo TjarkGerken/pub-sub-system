@@ -68,19 +68,97 @@ class TestSubscriberIntegration(unittest.TestCase):
         """
 
         mb = MessageBroker()
-        subscriber = Subscriber(50005, "U")
-        sensor = Sensor(50004, "U", "BRM")
+        subscriber = Subscriber(50005, "B")
+        time.sleep(10)
+        with self.__lock:
+            db_connection = sqlite3.connect(mb._database_file)
+            db_cursor = db_connection.cursor()
+            db_cursor.execute("SELECT * FROM Subscriber")
+            subscriptions = db_cursor.fetchall()
+            db_cursor.close()
+            db_connection.close()
 
-        time.sleep(5)
         subscriber.unsubscribe("UV")
+        time.sleep(5)
 
         with self.__lock:
             db_connection = sqlite3.connect(mb._database_file)
+            db_cursor = db_connection.cursor()
+            db_cursor.execute("SELECT * FROM Subscriber")
+            after_un_subscriptions = db_cursor.fetchall()
+            db_cursor.close()
+            db_connection.close()
 
+        subscriber.subscribe("UV")
+        time.sleep(5)
 
+        with self.__lock:
+            db_connection = sqlite3.connect(mb._database_file)
+            db_cursor = db_connection.cursor()
+            db_cursor.execute("SELECT * FROM Subscriber")
+            after_re_subscriptions = db_cursor.fetchall()
+            db_cursor.close()
+            db_connection.close()
 
         mb.stop()
         subscriber.stop()
-        sensor.stop()
+        #sensor.stop()
 
+        self.assertEqual(2, len(subscriptions), "Initial Subscriptions count should be 2")
+        self.assertEqual(1, len(after_un_subscriptions), "After unsubscribing the Subscriptions count should be 1")
+        self.assertEqual(2, len(after_re_subscriptions), "After resubscribing the Subscriptions count should be 2")
+
+
+    def test_data_flow_subscription(self):
+        """
+
+        :return:
+        """
+        with self.__lock:
+            db_connection = sqlite3.connect("database/message_broker.db")
+            db_cursor = db_connection.cursor()
+            db_cursor.execute("DELETE FROM MessageSocketQueue")
+            db_cursor.execute("DELETE FROM Subscriber")
+            db_connection.commit()
+            db_cursor.close()
+            db_connection.close()
+
+        time.sleep(2)
+
+        mb = MessageBroker()
+
+        subscriber = Subscriber(50005, "U", log=False, ignore_startup=True)
+        sensor_u = Sensor(50004, "U", "BRM", generate=False)
+        sensor_s = Sensor(50032, "S", "BRM", generate=False)
+        time.sleep(2)
+        sensor_s.generate_sensor_result()  # 0
+        time.sleep(2)
+        sensor_u.generate_sensor_result()  # 1
+        time.sleep(10)
+        subscriber.subscribe("TEMP")
+        time.sleep(10)
+        sensor_u.generate_sensor_result()  # 2 => Should Arrive does not
+        time.sleep(2)
+        sensor_s.generate_sensor_result()  # 3
+        time.sleep(10)
+        subscriber.unsubscribe("UV")
+        time.sleep(10)
+        sensor_u.generate_sensor_result()  # 3
+        time.sleep(2)
+        sensor_s.generate_sensor_result()  # 4 => Should Arrive does not
+        time.sleep(10)
+
+        with self.__lock:
+            db_connection = sqlite3.connect(subscriber._database_file)
+            db_cursor = db_connection.cursor()
+            db_cursor.execute("SELECT * FROM MessageSocketQueue")
+            messages = db_cursor.fetchall()
+            db_cursor.close()
+            db_connection.close()
+        time.sleep(2)
+        mb.stop()
+        sensor_u.stop()
+        sensor_s.stop()
+        subscriber.stop()
+        self.assertEqual(4, len(messages))
 

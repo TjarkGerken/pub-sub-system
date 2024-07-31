@@ -4,13 +4,13 @@ Definition of configurations for components
 
 # Communication Protocol
 # Maximum duration to wait for a message to be sent successfully
-RETRY_DURATION_IN_SECONDS = 45
+RETRY_DURATION_IN_SECONDS = 600
 # Duration to wait before retrying to send a failed request in sconds
-SECONDS_BETWEEN_RETRIES = 2
+SECONDS_BETWEEN_RETRIES = 15
 
 # Logging
 # Severity level (choose from 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-LOGGING_LEVEL = "DEBUG"
+LOGGING_LEVEL = "INFO"
 # Padding size for log messages
 LOGGING_PADDING = 65
 

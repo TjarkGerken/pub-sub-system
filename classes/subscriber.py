@@ -47,15 +47,21 @@ class Subscriber:
         The thread for listening to subscription messages
     """
 
-    def __init__(self, subscriber_port: int, subscriber_type: str) -> None:
+    def __init__(self, subscriber_port: int, subscriber_type: str, log: bool = True, ignore_startup: bool = False) \
+            -> None:
         """
         Initializes the subscriber with the given port and type (topic to subscribe to)
 
         :param subscriber_port: The port number for the subscriber
         :param subscriber_type: The topic to subscribe to ('U', 'S', or 'B')
+        :param log: A flag to enable or disable logging
+        :param ignore_startup: A flag to ignore the startup configuration
         """
         if subscriber_type not in ["U", "S", "B"]:
             raise ValueError("Sensor  type must be either 'U' or 'S' or 'B'")
+
+        self.log = log
+        self.ignore_startup = ignore_startup
 
         # Subscriber info
         self.__subscriber_port = subscriber_port
@@ -98,6 +104,8 @@ class Subscriber:
         Retrieves the current subscriptions from the configuration file.
         :return: A list of subscriptions (topics) if the configuration file exists, otherwise None.
         """
+        if self.ignore_startup:
+            return None
         # Check if config file exists
         if os.path.exists(self.__config_file_path):
             with open(self.__config_file_path, "r") as config_file:
@@ -202,7 +210,7 @@ class Subscriber:
         """
         sensor_value = ""
         # Run until the logger thread is stopped
-        while not self.__logger_thread.stopped():
+        while not self.__logger_thread.stopped() and self.log:
             # If there are no messages in the queue, continue
             if self._subscription_udp_socket.message_queue.empty():
                 continue
