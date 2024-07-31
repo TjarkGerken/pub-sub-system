@@ -63,7 +63,7 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         # Try to send the message and wait for an ACK for RETRY_DURATION_IN_SECONDS seconds. If no ACK is received,
         # retry sending the message every SECONDS_BETWEEN_RETRIES seconds.
         while time.time() - start_time < RETRY_DURATION_IN_SECONDS and not ack_received:
-            logger.debug(
+            logger.info(
                 f"{str('Send Message to ' + str(address)).ljust(50)}(UID: {self.uid} | SQ No. {self.sequence_number} |"
                 f" ACK No. 0 | Data ka: {data})")
 

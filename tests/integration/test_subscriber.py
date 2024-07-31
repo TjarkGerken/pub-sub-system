@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import threading
 import time
@@ -108,43 +109,43 @@ class TestSubscriberIntegration(unittest.TestCase):
         self.assertEqual(1, len(after_un_subscriptions), "After unsubscribing the Subscriptions count should be 1")
         self.assertEqual(2, len(after_re_subscriptions), "After resubscribing the Subscriptions count should be 2")
 
-
     def test_data_flow_subscription(self):
         """
 
         :return:
         """
         with self.__lock:
-            db_connection = sqlite3.connect("database/message_broker.db")
-            db_cursor = db_connection.cursor()
-            db_cursor.execute("DELETE FROM MessageSocketQueue")
-            db_cursor.execute("DELETE FROM Subscriber")
-            db_connection.commit()
-            db_cursor.close()
-            db_connection.close()
+            filenames = [
+                "database/message_broker.db",
+                "database/message_broker_sub.db",
+                "database/SENSOR_BRM_S_50032.db",
+                "database/SENSOR_BRM_U_50004.db",
+                "database/SUBSCRIBER_U_50005.db",
+                "config/SUBSCRIBER_U_50005.json",
+                "config/message_broker.json"
+            ]
 
-        time.sleep(2)
+            # Iterate over the list of filenames and delete each file if it exists
+            for filename in filenames:
+                if os.path.exists(filename):
+                    os.remove(filename)
 
         mb = MessageBroker()
-
         subscriber = Subscriber(50005, "U", log=False, ignore_startup=True)
+        time.sleep(5)
+
         sensor_u = Sensor(50004, "U", "BRM", generate=False)
         sensor_s = Sensor(50032, "S", "BRM", generate=False)
-        time.sleep(2)
         sensor_s.generate_sensor_result()  # 0
-        time.sleep(2)
         sensor_u.generate_sensor_result()  # 1
         time.sleep(10)
         subscriber.subscribe("TEMP")
         time.sleep(10)
         sensor_u.generate_sensor_result()  # 2 => Should Arrive does not
-        time.sleep(2)
         sensor_s.generate_sensor_result()  # 3
-        time.sleep(10)
         subscriber.unsubscribe("UV")
         time.sleep(10)
         sensor_u.generate_sensor_result()  # 3
-        time.sleep(2)
         sensor_s.generate_sensor_result()  # 4 => Should Arrive does not
         time.sleep(10)
 
@@ -161,4 +162,3 @@ class TestSubscriberIntegration(unittest.TestCase):
         sensor_s.stop()
         subscriber.stop()
         self.assertEqual(4, len(messages))
-
