@@ -232,7 +232,7 @@ class Sensor:
             sensor_result = self._sensor_results.get()
             message = json.dumps(sensor_result)
 
-            logger.info(f"[{self.sensor_id}] Send Message: {message}")
+            # logger.info(f"[{self.sensor_id}] Send Message: {message}")
             ack_received = self._cp_socket.send_message(message, ("127.0.0.1", 5004))
 
             # Delete the message from the database when it was sent successfully (message broker received it) or could
@@ -246,7 +246,7 @@ class Sensor:
                 db_connection = sqlite3.connect(self.database_file)
                 db_cursor = db_connection.cursor()
 
-                # Delete the message from the database so it won't be sent again
+                # Delete the message from the database, so it won't be sent again
                 db_connection.execute("DELETE FROM MessagesToSend WHERE Data = ?", (message,))
                 db_connection.commit()
 

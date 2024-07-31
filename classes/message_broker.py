@@ -264,7 +264,8 @@ class MessageBroker:
             # Insert subscriber to the database
             self.insert_to_db_subscriber(addr, topic)
             # Append the subscriber to the list of subscribers that are subscribed to the topic
-            self.subscribers_map[topic].append(addr)  # TODO: IF ERROR MAYBE IT OCCURS HERE :)
+            if  addr not in self.subscribers_map[topic]:
+                self.subscribers_map[topic].append(addr)  # TODO: IF ERROR MAYBE IT OCCURS HERE :)
 
             message = f"{topic}"
 
@@ -486,7 +487,7 @@ class MessageBroker:
 
         # Delete the message from the database after it was sent to all subscribers
         self._sensor_udp_socket.delete_message_from_db(message)
-        logger.info(f"{self.sequence_number}, {message}")
+        logger.debug(f"{self.sequence_number}, {message}")
         self.sequence_number += 1
         self.save_sq_no_to_config()
         self._sensor_udp_socket.message_queue.task_done()
@@ -507,7 +508,6 @@ class MessageBroker:
             # Connect to the database
             db_connection = sqlite3.connect(self._database_file)
             db_cursor = db_connection.cursor()
-
             # Get the subscriber ID of the specified subscriber from the database
             subscriber_id = db_cursor.execute(
                 "SELECT SubscriberID FROM Subscriber WHERE Address = ? AND Port = ? AND Topic = ?",
@@ -588,17 +588,18 @@ class MessageBroker:
             subscriber_id = db_cursor.execute(
                 "SELECT SubscriberID FROM Subscriber WHERE Address = ? AND Port = ? AND Topic = ?",
                 (subscriber[0], subscriber[1], topic)).fetchone()
-
+            logger.critical(f"{subscriber_id}, {data}")
             # If the subscriber is found in the database, insert the message to send to the subscriber into the database
             if subscriber_id:
                 # Just select SubscriberID from the query result
                 subscriber_id = subscriber_id[0]
-
+                logger.critical(f"{subscriber_id}, {data}")
                 try:
                     # Insert the message to send to the subscriber into the database
                     db_cursor.execute("INSERT INTO MessagesToSend (SubscriberId, Data) VALUES (?, ?)",
                                       (subscriber_id, json.dumps(data)))
                     db_connection.commit()
+                    logger.critical("Hello?")
                 except sqlite3.IntegrityError as e:
                     # Ensure that no message occurs twice in the database. This is solved by uniqueness constraints in
                     # the database therefore an IntegrityError is raised if the message is already in the database

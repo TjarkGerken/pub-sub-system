@@ -80,7 +80,7 @@ def main() -> None:
     :return: None
     """
     # Create publishers (sensors)
-    for i in range(1, 13):
+    for i in range(1, 6):
         sensor = Sensor(sensor_port=50100 + i, sensor_type="U" if i % 2 == 0 else "S",
                         location="BRM" if i % 2 == 0 else "MHN")
         components.append(sensor)
@@ -90,7 +90,7 @@ def main() -> None:
     components.append(mb)
 
     # Create subscribers
-    for i in range(1, 12, 2):
+    for i in range(1, 5, 2):
         subscriber = Subscriber(subscriber_port=60200 + i, subscriber_type="B")
         components.append(subscriber)
 

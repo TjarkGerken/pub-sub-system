@@ -239,6 +239,7 @@ class Subscriber:
             # Delete message from database after processing, so it is not processed again
             logger.info(f"[{self.__subscriber_id}]\tSuccessfully received message: {sensor_value}")
             self._subscription_udp_socket.delete_message_from_db(message)
+            self._subscription_udp_socket.message_queue.task_done()
 
         return None
 
