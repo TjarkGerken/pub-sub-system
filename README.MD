@@ -14,38 +14,44 @@ The communication is excecuted using sockets. For this we implemented a parent s
 ### Sending socket
 
 The sending socket is used by the sensors to send their data to the messagebroker which then also uses the sending socket to transmit the data to the subscribers.
-This socket uses the UID of the respective sensor, the sequence number labeling the order of the message as well as the transmittable data.
+
+This socket uses the UID of the respective sensor, the sequence number labeling the order of the message as well as the transmittable data. 
+
+It follows the sequence of sending the data, waiting for the acknowledgement discussed furhter bellow and then also sending an acknowledgment with respective error handling processes in between.
 
 ### Recieving socket
 
-The recieving socket is used by the messagebroker to recieve the sensor's data as well as by the subscribers to recieve the messagebroker's data. IT uses the same parameters for these processes as the sending socket. 
+The recieving socket is used by the messagebroker to recieve the sensor's data as well as by the subscribers to recieve the messagebroker's data. 
+
+It uses the same parameters for these processes as the sending socket.
+
+In contrast to the sending socket it follows the sequence of listening for data, sending an acknowledgement after reception and then waiting for the second acknowledgement again.
 
 ## Transmition Process
 
 The current data sitting at a sensor waiting for transmition will generally be placed into a queue. When transmitting the data it will be removed from the queue. If the transmition fails the data will be retransmitted using the persisted data explained later on.
 
-After transmition, that data will then be persisted in the messagebroker's database. The messagebroker now sorts the recieved data into the seperate queues for each subscriber depending on the subscriptions they made. The data of that queue will than transmitted using the same logic.
+After transmition, that data will then be persisted in the messagebroker's database. The messagebroker now sorts the recieved data into the seperate queues for each subscriber depending on the subscriptions they made. The data of that queue will then transmitted using the same logic.
 
 ### Protocol
 
-In order to ensure a reliable communication we introduced acknowledgements. Whenever data is transmitted, a acknowledgement from the recieving party will be sent to the sender stating the successfull and correct transmittion of the data following a second acknowledgement confirming the reception of the first acknowledgement.
-An incorrect transmition of the data or missing reception of the first acknowledgement will leed to a retransmission.
+In order to ensure a reliable communication we introduced acknowledgements. Whenever data is transmitted, an acknowledgement from the recieving party will be sent to the sender stating the successfull and correct transmition of the data. This is then followed a second acknowledgement from the sender to the recieving party confirming the reception of the first acknowledgement.
 
-Ding mit 2ACK
+An incorrect transmition of the data or missing reception of the first acknowledgement will leed to a retransmission.
 
 A hashed checksum of the transmitted data and timestamp is used to uniquely identify the package during the processes.
 
 ### Persistence
 
-In order to ensure persistence we used databases storing the to be send data so that it in case of a technical error doesn't get lost. 
+In order to ensure persistence we used databases storing the to be send data so that it doesn't get lost in case of a technical error.
 
-The sensor will store it's acquried data in a database before transmition. Once the sensor recieved the acknowledgement of the messagebroker the piece of data, identified by the checksum, will be deleted from the database table.
+The sensor will store it's acquried data in a database before transmition. Once the sensor recieved the acknowledgement of the messagebroker, the piece of data, identified by the checksum, will be deleted from the database table.
 
 The same logic applies to the data transmition process between the messagebroker and the subscribers.
   
 ## Execution
 
-Before execting the application the number of build sensors and subscribers can be defined in the main file. The confoguration file additionally offers the posibility of defining the maximum time for resending a failed message. The displayed logging information can also be adjusted.
+Before executing the application, the number of build sensors and subscribers can be defined in the main file. The configuration file additionally offers the posibility of defining the timespans for resending a failed message. The displayed logging information can also be adjusted.
 
 The application can then be executed starting the main-funtion.
 
