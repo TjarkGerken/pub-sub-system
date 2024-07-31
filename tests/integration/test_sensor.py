@@ -6,6 +6,7 @@ import unittest
 
 from classes.message_broker import MessageBroker
 from classes.sensor import Sensor
+from utils.delete_files_and_folders import delete_files_and_folders
 from utils.logger import logger
 
 
@@ -22,6 +23,14 @@ class TestCommunicationIntegration(unittest.TestCase):
         """
         cls.__lock = threading.Lock()
 
+
+    def tearDown(self):
+        """
+        Deletes the database after the tests are done.
+        :return:
+        """
+        delete_files_and_folders()
+
     def test_reboot_consistent_data(self):
         """
         Tests if the data stays consistent after the sensor shutdowns and reboots.
@@ -33,6 +42,8 @@ class TestCommunicationIntegration(unittest.TestCase):
 
         :return: None
         """
+        delete_files_and_folders()
+
         sensor = Sensor(50001, "U", "BRM")
 
         time.sleep(5)
@@ -62,6 +73,8 @@ class TestCommunicationIntegration(unittest.TestCase):
             db_connection.close()
         sensor.stop()
 
+        time.sleep(5)
+
         self.assertEqual(messages, messages_after_reboot, "The messages in the database are not the same after reboot.")
         self.assertEqual(sensor_message_queue.qsize(), sensor_message_queue_after_reboot.qsize(),
                          "The messages in the queue are not the same after reboot.")
@@ -85,6 +98,7 @@ class TestCommunicationIntegration(unittest.TestCase):
         Tests the sending of a message to the message broker.
         :return: None
         """
+        delete_files_and_folders()
 
         self.clear_tables("database/message_broker.db")
         mb = MessageBroker()
@@ -119,6 +133,10 @@ class TestCommunicationIntegration(unittest.TestCase):
         logger.warning(sensor2._cp_socket.completed_results)
 
         mb.stop()
+        sensor.stop()
+        sensor2.stop()
+
+        time.sleep(5)
 
         self.assertEqual(4 + offset, sq_no)
 

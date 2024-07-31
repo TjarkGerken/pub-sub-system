@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import unittest
 import threading
@@ -7,6 +8,7 @@ import json
 from classes.message_broker import MessageBroker
 from classes.sensor import Sensor
 from classes.subscriber import Subscriber
+from utils.delete_files_and_folders import delete_files_and_folders
 from utils.logger import logger
 
 
@@ -14,6 +16,13 @@ class TestMessageBrokerIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.__lock = threading.Lock()
+
+    def tearDown(self):
+        """
+        Deletes the database after the tests are done.
+        :return:
+        """
+        delete_files_and_folders()
 
     def test_mb_reboot_sensor_data_consistency(self):
         """
@@ -25,6 +34,8 @@ class TestMessageBrokerIntegration(unittest.TestCase):
 
         :return: None
         """
+        delete_files_and_folders()
+
         mb = MessageBroker()
         offset = mb.sequence_number
 
@@ -67,6 +78,8 @@ class TestMessageBrokerIntegration(unittest.TestCase):
 
         :return: None
         """
+        delete_files_and_folders()
+
         test_data = [
             {
                 "sensor_id": "SENSOR_BRM_U_50001",
@@ -105,44 +118,33 @@ class TestMessageBrokerIntegration(unittest.TestCase):
 
         test = str(test_data[0])
         mb._sensor_udp_socket.message_queue.put(test)
-
         time.sleep(5)
-
-        subscriber.stop()
         mb.stop()
-
-        time.sleep(10)
-
+        time.sleep(5)
         with self.__lock:
             db_connection = sqlite3.connect(mb._database_file)
             db_cursor = db_connection.cursor()
-            logger.warn(f"Insert {json.dumps(test_data[1])}")
             db_cursor.execute("INSERT INTO MessageSocketQueue (data) VALUES(?)", (json.dumps(test_data[1]),))
             db_connection.commit()
             db_cursor.close()
             db_connection.close()
-
-        time.sleep(5)
-
+        time.sleep(10)
         mb = MessageBroker()
+        mb._sensor_udp_socket.message_queue.put(test)
 
         time.sleep(5)
 
         subscriber.stop()
         mb.stop()
-
         time.sleep(5)
 
         items = []
+        logger.warning(subscriber._subscription_udp_socket.message_queue.qsize())
         while not subscriber._subscription_udp_socket.message_queue.empty():
             items.append(subscriber._subscription_udp_socket.message_queue.get())
 
-        logger.warn(items)
+        logger.warning(items)
 
         self.assertEqual(2,
                          len(items),
                          "The subscriber didn't receive all messages.")
-
-
-if __name__ == '__main__':
-    unittest.main()

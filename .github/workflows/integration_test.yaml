@@ -9,7 +9,7 @@ on:
       - master
 
 jobs:
-  test:
+  integration-test-communication-socket:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,5 +21,65 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Run integration tests
-        run: python -m unittest discover -s tests/integration -p 'test_*.py'
+      - name: Integration test - Communication Socket
+        run: python -m unittest discover -s tests/integration -p 'test_communication_socket.py'
+
+  integration-test-sensor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Integration test - Sensor
+        run: python -m unittest discover -s tests/integration -p 'test_sensor.py'
+
+  integration-test-subscriber:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Integration test - Subscriber
+        run: python -m unittest discover -s tests/integration -p 'test_subscriber.py'
+
+  integration-test-message-broker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Integration test - Message Broker
+        run: python -m unittest discover -s tests/integration -p 'test_message_broker.py'
+
+  integration-test-overall-scenario:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Integration test - Overall Scenario
+        run: python -m unittest discover -s tests/integration -p 'test_overall_scenario.py'

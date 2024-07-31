@@ -1,3 +1,4 @@
+import json
 import os
 import queue
 import sqlite3
@@ -8,44 +9,53 @@ import unittest
 from classes.CommunicationProtocol.receiving_communication_protocol_socket import ReceivingCommunicationProtocolSocket
 from classes.CommunicationProtocol.sending_communication_protocol_socket import SendingCommunicationProtocolSocket
 from utils.StoppableThread import StoppableThread
-
-
-def database_init():
-    """
-    Initializes the SQLite database by replacing them with new ones to ensure no data is left from previous runs.
-    """
-    # Create the database if it does not exist and connect to it
-    db_path = "database/message_broker.db"
-    db_dir = os.path.dirname(db_path)
-
-    # Ensure the directory exists
-    if not os.path.exists(db_dir):
-        os.makedirs(db_dir)
-    db_connection = sqlite3.connect(db_path)
-    db_cursor = db_connection.cursor()
-
-    # Execute DDL script to create tables if not already exist
-    with open("database/ddl_mb.sql", "r") as ddl_file:
-        db_cursor.executescript(ddl_file.read())
-        db_connection.commit()
-
-    db_cursor.close()
-    db_connection.close()
-    return None
+from utils.delete_files_and_folders import delete_files_and_folders
 
 
 class TestCommunicationIntegration(unittest.TestCase):
     """
     Integration tests for the communication protocol between client and server.
     """
+
+    def database_init(self):
+        """
+        Initializes the SQLite database by replacing them with new ones to ensure no data is left from previous runs.
+        """
+        # Create the database if it does not exist and connect to it
+        with self.__lock:
+            db_path = "database/message_broker.db"
+            db_dir = os.path.dirname(db_path)
+
+            # Ensure the directory exists
+            if not os.path.exists(db_dir):
+                os.makedirs(db_dir)
+            db_connection = sqlite3.connect(db_path)
+            db_cursor = db_connection.cursor()
+
+            # Execute DDL script to create tables if not already exist
+            with open("database/ddl_mb.sql", "r") as ddl_file:
+                db_cursor.executescript(ddl_file.read())
+                db_connection.commit()
+
+            db_cursor.close()
+            db_connection.close()
+            return None
+
+
     @classmethod
     def setUpClass(cls):
         """
         Initializes the database and introduces a lock for the test.
         :return:
         """
-        database_init()
-        cls.__lock = threading.Lock()
+        cls.__lock = threading.RLock()
+
+    def tearDown(self):
+        """
+        Deletes the database after the tests are done.
+        :return:
+        """
+        delete_files_and_folders()
 
     def test_send_data(self):
         """
@@ -56,6 +66,8 @@ class TestCommunicationIntegration(unittest.TestCase):
         client sequence number is incremented correctly and that the messages are stored in the database.
         :return: None
         """
+        delete_files_and_folders()
+        self.database_init()
         client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5002)
         server = ReceivingCommunicationProtocolSocket("RECEIVING_SOCKET", 6002, "database/message_broker.db")
         with self.__lock:
@@ -73,8 +85,27 @@ class TestCommunicationIntegration(unittest.TestCase):
 
         listener_thread = StoppableThread(target=run_listener)
         listener_thread.start()
-        client.send_message("Test message", ("127.0.0.1", 6002))
-        client.send_message("Test message", ("127.0.0.1", 6002))
+
+        client.send_message(
+            json.dumps({
+                "uv_index": 18,
+                "sensor_id": "SENSOR_BRM_U_50001",
+                "datetime": "2024-07-31T19:52:41.937366",
+                "sensor_type": "U",
+                "location": "BRM"
+            }),
+            ("127.0.0.1", 6002)
+        )
+        client.send_message(
+            json.dumps({
+                "uv_index": 18,
+                "sensor_id": "SENSOR_BRM_U_50001",
+                "dateti,me": "2024-07-31T19:52:41.937366",
+                "sensor_type": "U",
+                "location": "BRM"
+            }),
+            ("127.0.0.1", 6002)
+        )
         time.sleep(2)
         with self.__lock:
             db_connection = sqlite3.connect(server.database_file)
@@ -107,16 +138,10 @@ class TestCommunicationIntegration(unittest.TestCase):
 
             :return: None
             """
-        client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5004)
-        server = ReceivingCommunicationProtocolSocket("RECEIVING_SOCKET", 6004, "database/message_broker.db")
-        with self.__lock:
-            db_connection = sqlite3.connect(server.database_file)
-            db_cursor = db_connection.cursor()
-            db_cursor.execute("DELETE FROM MessageSocketQueue")
-            db_cursor.execute("DELETE FROM MessagesToSend")
-            db_connection.commit()
-            db_cursor.close()
-            db_connection.close()
+        delete_files_and_folders()
+        self.database_init()
+        client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 50044)
+        server = ReceivingCommunicationProtocolSocket("RECEIVING_SOCKET", 60044, "database/message_broker.db")
 
         server.message_queue = queue.Queue()
         message = "Test message"
@@ -125,21 +150,27 @@ class TestCommunicationIntegration(unittest.TestCase):
             server.listener()
 
         def send_message():
-            client.send_message(message, ("127.0.0.1", 6004))
+            client.send_message(message, ("127.0.0.1", 60044))
 
         listener_thread = StoppableThread(target=run_listener)
-        send_thread = StoppableThread(target=send_message).start()
-        time.sleep(10)
+        send_thread = StoppableThread(target=send_message)
         listener_thread.start()
+        time.sleep(10)
+        send_thread.start()
         time.sleep(5)
-        received_message = server.message_queue.get()
+        received_message = None
+        if not server.message_queue.empty():
+            received_message = server.message_queue.get()
+        else:
+            pass
         sq_number = client.sequence_number
-        listener_thread.stop()
+        time.sleep(5)
         client.stop()
         server.stop()
+        listener_thread.stop()
+        send_thread.stop()
         self.assertEqual(received_message, message, "Expected message to be received by the server")
         self.assertEqual(sq_number, 1, "Expected client sequence number to be 1")
-
 
     def test_duplicate_messages(self):
         """
@@ -154,26 +185,21 @@ class TestCommunicationIntegration(unittest.TestCase):
 
             :return:
             """
-        client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 5000)
-        server = ReceivingCommunicationProtocolSocket("RECEIVING_SOCKET", 6000, "database/message_broker.db")
-        with self.__lock:
-            db_connection = sqlite3.connect(server.database_file)
-            db_cursor = db_connection.cursor()
-            db_cursor.execute("DELETE FROM MessageSocketQueue")
-            db_cursor.execute("DELETE FROM MessagesToSend")
-            db_connection.commit()
-            db_cursor.close()
-            db_connection.close()
+        delete_files_and_folders()
+        self.database_init()
+
+        client = SendingCommunicationProtocolSocket("SENDING_SOCKET", 50400)
+        server = ReceivingCommunicationProtocolSocket("RECEIVING_SOCKET", 60400, "database/message_broker.db")
+
 
         server.message_queue = queue.Queue()
         message = "Test message"
-        database_init()
 
         def run_listener():
             server.listener()
 
         def send_message():
-            client.send(("127.0.0.1", 6000), "DATA", 0, 0, message)
+            client.send(("127.0.0.1", 60400), "DATA", 0, 0, message)
 
         listener_thread = StoppableThread(target=run_listener)
         listener_thread.start()
