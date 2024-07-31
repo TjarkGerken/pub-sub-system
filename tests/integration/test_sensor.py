@@ -73,6 +73,8 @@ class TestCommunicationIntegration(unittest.TestCase):
             db_connection.close()
         sensor.stop()
 
+        time.sleep(5)
+
         self.assertEqual(messages, messages_after_reboot, "The messages in the database are not the same after reboot.")
         self.assertEqual(sensor_message_queue.qsize(), sensor_message_queue_after_reboot.qsize(),
                          "The messages in the queue are not the same after reboot.")
@@ -131,6 +133,10 @@ class TestCommunicationIntegration(unittest.TestCase):
         logger.warning(sensor2._cp_socket.completed_results)
 
         mb.stop()
+        sensor.stop()
+        sensor2.stop()
+
+        time.sleep(5)
 
         self.assertEqual(4 + offset, sq_no)
 
