@@ -21,5 +21,17 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Run integration tests
-        run: python -m unittest discover -s tests/integration -p 'test_*.py'
+      - name: Integration test - Communication Socket
+        run: python -m unittest discover -s tests/integration -p 'test_communication_socket.py'
+
+      - name: Integration test - Sensor
+        run: python -m unittest discover -s tests/integration -p 'test_sensor.py'
+
+      - name: Integration test - Subscriber
+        run: python -m unittest discover -s tests/integration -p 'test_subscriber.py'
+
+      - name: Integration test - Message Broker
+        run: python -m unittest discover -s tests/integration -p 'test_message_broker.py'
+
+      - name: Integration test - Overall Scenario
+        run: python -m unittest discover -s tests/integration -p 'test_overall_scenario.py'
