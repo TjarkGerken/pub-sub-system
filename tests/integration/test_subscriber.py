@@ -137,7 +137,7 @@ class TestSubscriberIntegration(unittest.TestCase):
         time.sleep(10)
         subscriber.subscribe("TEMP")
         time.sleep(10)
-        sensor_u.generate_sensor_result()  # 2 => Should Arrive does not
+        sensor_u.generate_sensor_result()  # 2
         time.sleep(2)
         sensor_s.generate_sensor_result()  # 3
         time.sleep(10)
@@ -145,7 +145,7 @@ class TestSubscriberIntegration(unittest.TestCase):
         time.sleep(10)
         sensor_u.generate_sensor_result()  # 3
         time.sleep(2)
-        sensor_s.generate_sensor_result()  # 4 => Should Arrive does not
+        sensor_s.generate_sensor_result()  # 4
         time.sleep(10)
 
         with self.__lock:
