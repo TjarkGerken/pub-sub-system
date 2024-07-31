@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import unittest
 import threading
@@ -67,6 +68,19 @@ class TestMessageBrokerIntegration(unittest.TestCase):
 
         :return: None
         """
+        with self.__lock:
+            filenames = [
+                "database/message_broker.db",
+                "database/message_broker_sub.db",
+                "database/SUBSCRIBER_B_5005.db",
+                "config/SUBSCRIBER_B_5005.json",
+                "config/message_broker.json"
+            ]
+
+            # Iterate over the list of filenames and delete each file if it exists
+            for filename in filenames:
+                if os.path.exists(filename):
+                    os.remove(filename)
         test_data = [
             {
                 "sensor_id": "SENSOR_BRM_U_50001",
@@ -116,7 +130,7 @@ class TestMessageBrokerIntegration(unittest.TestCase):
         with self.__lock:
             db_connection = sqlite3.connect(mb._database_file)
             db_cursor = db_connection.cursor()
-            logger.warn(f"Insert {json.dumps(test_data[1])}")
+            logger.warning(f"Insert {json.dumps(test_data[1])}")
             db_cursor.execute("INSERT INTO MessageSocketQueue (data) VALUES(?)", (json.dumps(test_data[1]),))
             db_connection.commit()
             db_cursor.close()
@@ -134,15 +148,15 @@ class TestMessageBrokerIntegration(unittest.TestCase):
         time.sleep(5)
 
         items = []
+        logger.warning(subscriber._subscription_udp_socket.message_queue.qsize())
         while not subscriber._subscription_udp_socket.message_queue.empty():
             items.append(subscriber._subscription_udp_socket.message_queue.get())
 
-        logger.warn(items)
+        logger.warning(items)
 
         self.assertEqual(2,
                          len(items),
                          "The subscriber didn't receive all messages.")
 
 
-if __name__ == '__main__':
-    unittest.main()
+

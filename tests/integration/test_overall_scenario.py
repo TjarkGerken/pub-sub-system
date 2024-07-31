@@ -35,6 +35,3 @@ class TestOverallScenario(TestCase):
             subscriber.stop()
             subscribers.remove(subscriber)
         mb.stop()
-
-    def test_overall_scenario(self):
-        pass
