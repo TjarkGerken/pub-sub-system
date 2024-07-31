@@ -9,7 +9,7 @@ on:
       - master
 
 jobs:
-  Integration test - Communication Socket:
+  integration-test-communication-socket:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +24,7 @@ jobs:
       - name: Integration test - Communication Socket
         run: python -m unittest discover -s tests/integration -p 'test_communication_socket.py'
 
-  Integration test - Sensor:
+  integration-test-sensor:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,7 +39,7 @@ jobs:
       - name: Integration test - Sensor
         run: python -m unittest discover -s tests/integration -p 'test_sensor.py'
 
-  Integration test - Subscriber:
+  integration-test-subscriber:
     runs-on: ubuntu-latest
 
     steps:
@@ -54,7 +54,7 @@ jobs:
       - name: Integration test - Subscriber
         run: python -m unittest discover -s tests/integration -p 'test_subscriber.py'
 
-  Integration test - Message Broker:
+  integration-test-message-broker:
     runs-on: ubuntu-latest
 
     steps:
@@ -69,7 +69,7 @@ jobs:
       - name: Integration test - Message Broker
         run: python -m unittest discover -s tests/integration -p 'test_message_broker.py'
 
-  Integration test - Overall Scenarios:
+  integration-test-overall-scenario:
     runs-on: ubuntu-latest
 
     steps:
