@@ -90,10 +90,11 @@ class SendingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 logger.warning(f"Client not reachable, retrying in {SECONDS_BETWEEN_RETRIES} second(s)...")
                 logger.debug(f"Connection reset error | {e}")
             except TimeoutError as e:
-                # TODO: Comment
+                # Timeout is reached while waiting for a message
+                # Timeout is important to check if the thread should stop → start listening again
                 logger.debug(f"Timeout error | {e}")
                 pass
-            except Exception as e:  # TODO: Specify exception
+            except Exception as e:
                 logger.critical("Error sending ACK No. 2")
                 logger.debug(f"Error sending ACK No. 2: {e}")
 

@@ -19,30 +19,53 @@ class TestOverallScenario(TestCase):
         """
         delete_files_and_folders()
 
-    def test_init(self):
-        def init(SEN_NO, SUB_NO):
+    def test_init(self) -> None:
+        """
+        This Test case tests the initialization of the message broker, sensors, and subscribers.
+
+        It creates a message broker, sensors, and subscribers. It then checks if the number of sensors and subscribers
+        created are as expected. It then stops the sensors and subscribers and the message broker.
+
+        :return: None
+        """
+        def init(sen_no, sub_no) -> tuple:
+            """
+            Returns a full set of working components with a given count for the sensor and the subscribers.
+
+            :param sen_no: Number of sensors to be created
+            :param sub_no: Number of subscribers to be created
+            :return: Tuple of Message Broker, List of Sensors and List of Sensors
+            """
             delete_files_and_folders()
 
             # Create message broker
-            mb = MessageBroker()
-            sensors = []
-            subscribers = []
-            for i in range(1, SEN_NO):
-                sensor = Sensor(sensor_port=52000 + i, sensor_type="U" if i % 2 == 0 else "S",
-                                location="BRM" if i % 2 == 0 else "MHN")
-                sensors.append(sensor)
-            # Create subscribers
-            for i in range(1, SUB_NO * 2, 2):
-                subscriber = Subscriber(subscriber_port=63000 + i, subscriber_type="B")
-                subscribers.append(subscriber)
+            temp_mb = MessageBroker()
 
-            return mb, sensors, subscribers
+            # Create lists to return
+            temp_sensors = []
+            temp_subscribers = []
+
+            # Create Sensors
+            for i in range(1, sen_no):
+                temp_sensor = Sensor(sensor_port=52000 + i, sensor_type="U" if i % 2 == 0 else "S",
+                                     location="BRM" if i % 2 == 0 else "MHN")
+                temp_sensors.append(temp_sensor)
+
+            # Create subscribers
+            for i in range(1, sub_no * 2, 2):
+                temp_subscriber = Subscriber(subscriber_port=63000 + i, subscriber_type="B")
+                temp_subscribers.append(temp_subscriber)
+
+            return temp_mb, temp_sensors, temp_subscribers
 
         sen_no = 12
         sub_no = 6
         mb, sensors, subscribers = init(sen_no, sub_no)
+        # Check if the correct amount has been created
         self.assertEqual(len(sensors), sen_no - 1, "Expected number of sensors not created")
         self.assertEqual(len(subscribers), sub_no, "Expected number of subscribers not created")
+
+        # Shutdown all processes
         for sensor in sensors:
             sensor.stop()
         for subscriber in subscribers:

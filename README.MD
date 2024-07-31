@@ -30,12 +30,33 @@ To configure the application you can adjust the `configuration.py` file.
 
 ## General description
 
-The application consists of three components: sensors, message broker and subscribers.  
-The sensors generate randomized data for temperature and UV radiation. This data is then sent to the message broker.  
-The message broker receives the data from the sensors and is responsible for distributing the data to the relevant subscribers.
+The application consists of three components: sensors, message broker and subscribers. The sensors generate randomized 
+data for temperature and UV radiation. This data is then sent to the message broker. The message broker receives the 
+data from the sensors and is responsible for distributing the data to the relevant subscribers.
 
 At the start of the application, the subscribers specify which sensors and data they wish to receive and define this 
 relationship with the message broker. They then receive the requested content.
+
+A screencast explaining the application can be found [here](https://youtube.com). 
+
+## Overview
+This project implements a robust system for data transmission between a sensor, a message broker (MB), and a subscriber. The system aims to ensure data integrity and prevent data loss through comprehensive error handling.
+## System Components
+### Sensor
+-	Database:* SQLite3
+-	Error:* Sensor fails before data transmission; data must be resent after a reboot.
+-	Solution:* Data persistence using SQLite3.
+### Message Broker (MB)
+-	*Database:* SQLite3
+-	*Error:* Incomplete data transmission; header checksum does not match.
+-	*Solution:* Data persistence and validation of data integrity through checksums.
+### Subscriber
+-	*Database:* SQLite3
+-	*Error:* Sensor fails before all messages are processed; data must be reloaded and processed after a reboot.
+-	*Solution:* Data persistence using SQLite3.
+### SQLite3
+We chose SQLite3 because it is a built-in database solution in Python and does not require additional installation. This simplicity and accessibility make SQLite3 the ideal choice for our project.
+
  
 ## Communication
 
@@ -62,7 +83,6 @@ sending an acknowledgement with respective error handling processes in between.
 
 The receiving socket is used by the message broker to receive the sensor's data as well as by the subscribers to receive
 the message broker's data. 
-
 It uses the same parameters for these processes as the sending socket.
 In contrast to the sending socket it follows the sequence of listening for data, sending an acknowledgement after 
 reception and then waiting for the second acknowledgement again.
@@ -95,32 +115,6 @@ The sensor will store it's acquired data in a database before transmission. Once
 the piece of data, identified by the checksum, will be deleted from the database table.
 
 The same logic applies to the data transmission process between the message broker and the subscribers.
-
-## Execution
-
-Before executing the application, the number of build sensors and subscribers can be defined in the main file.  
-The configuration file additionally offers the possibility of defining the timespans for resending a failed message.  
-The displayed logging information can also be adjusted.
-
-The application can then be executed starting the main-function.
-
-## Overview
-This project implements a robust system for data transmission between a sensor, a message broker (MB), and a subscriber. The system aims to ensure data integrity and prevent data loss through comprehensive error handling.
-## System Components
-### Sensor
--	Database:* SQLite3
--	Error:* Sensor fails before data transmission; data must be resent after a reboot.
--	Solution:* Data persistence using SQLite3.
-### Message Broker (MB)
--	*Database:* SQLite3
--	*Error:* Incomplete data transmission; header checksum does not match.
--	*Solution:* Data persistence and validation of data integrity through checksums.
-### Subscriber
--	*Database:* SQLite3
--	*Error:* Sensor fails before all messages are processed; data must be reloaded and processed after a reboot.
--	*Solution:* Data persistence using SQLite3.
-### SQLite3
-We chose SQLite3 because it is a built-in database solution in Python and does not require additional installation. This simplicity and accessibility make SQLite3 the ideal choice for our project.
 
 ## Data Flow Diagram and Process Description
 

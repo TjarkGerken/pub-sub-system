@@ -4,9 +4,7 @@ SendingCommunicationProtocolSocket and ReceivingCommunicationProtocolSocket clas
 for sending and receiving messages over a communication protocol socket.
 """
 
-import time
 import socket
-import threading
 from typing import Literal
 
 from utils.logger import logger
@@ -85,11 +83,10 @@ class CommunicationProtocolSocketBase:
         try:
             # Send the data to the specified endpoint
             self.cp_socket.sendto(data, address)
-        except Exception as e:  # TODO: Genauere Exception abfangen
-            logger.critical(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} ) | Error : {e} | {address}") # TODO: Remove Error
+        except Exception as e:
+            logger.critical(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no} ) | {address}")
             logger.debug(f"Error sending data (UID: {self.uid}) | SQ No.:{sq_no} | ACK No.:{ack_no}) | Error: {e})")
 
-        # TODO: Return status (OK or Error)?
         return None
 
     def stop(self) -> None:

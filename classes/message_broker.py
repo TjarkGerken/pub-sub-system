@@ -193,7 +193,7 @@ class MessageBroker:
             self.prefill_subscriber_queues(subscriber[0], addr)
             self.subscriber_queues[addr]["thread"].start()
 
-            logger.info(f"[MB_SUBSCRIPTION] | Successfully Resubscribed {addr} to {topic}")  # TODO: Remove re-?
+            logger.info(f"[MB_SUBSCRIPTION] | Successfully Resubscribed {addr} to {topic}")
 
         return None
 
@@ -250,7 +250,6 @@ class MessageBroker:
             logger.error(f"[MB_SUBSCRIPTION] | Invalid Subscription Message ({data})")
             return None
 
-        message = None
         action, topic = subscription.split("_")
 
         # If the requested topic is not available, log an error and don't perform any actions
@@ -264,7 +263,7 @@ class MessageBroker:
             self.insert_to_db_subscriber(addr, topic)
             # Append the subscriber to the list of subscribers that are subscribed to the topic
             if addr not in self.subscribers_map[topic]:
-                self.subscribers_map[topic].append(addr)  # TODO: IF ERROR MAYBE IT OCCURS HERE :)
+                self.subscribers_map[topic].append(addr)
 
             message = f"{topic}"
 
@@ -278,7 +277,7 @@ class MessageBroker:
 
         elif action == "UNSUBSCRIBE":
             try:
-                # Remove subscriber address from the list of subscribers that are subscribed to the topic so it won't
+                # Remove subscriber address from the list of subscribers that are subscribed to the topic, so it won't
                 # get any messages anymore from the topic
                 self.subscribers_map[topic].remove(addr)
             except Exception as e:
@@ -307,9 +306,9 @@ class MessageBroker:
                                 except (TypeError, json.JSONDecodeError):
                                     message = ast.literal_eval(message)
 
-                            # TODO: Why is sensor_type and topic not the same?
                             # Check if the message corresponds to the correct sensor type and topic before re-adding it
-                            # to the queue
+                            # to the queue. The topic is the topic that is being unsubscribed from therefore only
+                            # opposite messages should be added.
                             if message["sensor_type"] == "S" and topic == "UV" and is_present:
                                 self.subscriber_queues[addr]["queue"].put(message)
                             elif message["sensor_type"] == "U" and topic == "TEMP" and is_present:
@@ -347,7 +346,7 @@ class MessageBroker:
 
     def remove_from_db_subscriber(self, addr: tuple[str, int], topic: str) -> None:
         """
-        Removes the subscriber from the database so it won't receive any messages anymore
+        Removes the subscriber from the database, so it won't receive any messages anymore
 
         :param addr: Address of the subscriber as tuple containing the IP address as string and the port as integer of
         the subscriber

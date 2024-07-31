@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS MessageSocketQueue (
     Data TEXT
 );
 
+-- Creates a table for the stored checksums of received messages
 CREATE TABLE IF NOT EXISTS Checksums (
      DicKey TEXT PRIMARY KEY,
      Checksum TEXT NOT NULL

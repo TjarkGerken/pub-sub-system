@@ -63,7 +63,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
     def init_db(self) -> None:
         """
-        Initialize the database by creating the necessary tables if not already present. Finally the queue is prefilled
+        Initialize the database by creating the necessary tables if not already present. Finally, the queue is prefilled
         with unsent messages.
 
         :return: None
@@ -143,7 +143,8 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                         break
                 continue
             except OSError as e:
-                # TODO: Document
+                # If the connection is interrupted during the handling of the message an OS Error might be thrown
+                # This is logged and does not create issues due to the retry mechanisms of the Protocol
                 logger.error(f"Error while receiving message: {e}")
                 continue
 
@@ -174,7 +175,6 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 # Insert the message into the database for persistence
                 db_cursor.execute("INSERT INTO Checksums (DicKey, Checksum) VALUES (?, ?)", (uid, checksum,))
                 db_connection.commit()
-                # logger.critical(f"Inserted checksum into database (UID: {self.uid} | UID: {uid} | Checksum: {checksum})")
                 # Close the resources
                 db_cursor.close()
                 db_connection.close()
@@ -278,8 +278,9 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
         This method handles the received message. If it is a data packet (ACK No. 0), it stores the checksum and sends
         an ACK for the received message. If the packet is an Acknowledgement for the Acknowledgement (ACK No. 2), it
         removes the stored checksum and logs the completion of the communication to avoid duplicate messages.
-        TODO: Add Parent Therad
+
         :param data: The received message to be handled
+        :param parent_thread: The 
 
         :return: None
         """
@@ -300,7 +301,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 f"Checksums do not match: {checksum} != {calculated_checksum} | Data: {data} (UID: {sdr_uid} | SQ No. "
                 f"{sq_no} | ACK No. {ack_no})")
 
-            return None  # TODO: Return Error Code
+            return None
 
         sdr_port = int(sdr_port)
         rec_port = int(rec_port)
@@ -316,7 +317,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 self.send((sdr_addr, sdr_port), "ACK", sq_no, 1, "ACK")
                 logger.debug(
                     f"{str('Ack has been sent').ljust(50)}(UID: {self.uid} | TO {(sdr_addr, sdr_port)} | SQ No. {sq_no} | ACK No. 1 | Data: {data})")
-                return None  # TODO: Return Error Code
+                return None
 
             # Store the checksum of the received packet
 
@@ -347,8 +348,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 self.delete_checksum_from_db(f"{sdr_uid}_{sq_no}")
                 self.stored_results.append(f"{sdr_uid}_{sq_no}")
             logger.debug(f"{self.uid} | Removed Checksum | Communication Complete")
-
-        # ACK for ACK received but the stored checksum is not found # TODO: When is this case possible?
+        # ACK for ACK received but the stored checksum is not found
         elif ack_no == 2:
             logger.debug(f"{str('Received ACK 2.2').ljust(50)}(UID: {sdr_uid} | SQ No. {sq_no} | ACK No. {ack_no} | "
                          f"Data: {data})")
@@ -361,4 +361,4 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
                 f"{data})")
             logger.debug(f"{self.uid} | ACK already sent, skipping...")
 
-        return None  # TODO: Return Error Code
+        return None
