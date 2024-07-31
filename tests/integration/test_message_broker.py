@@ -16,6 +16,7 @@ class TestMessageBrokerIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.__lock = threading.Lock()
+
     @classmethod
     def tearDownClass(cls):
         """
@@ -23,6 +24,7 @@ class TestMessageBrokerIntegration(unittest.TestCase):
         :return:
         """
         delete_files_and_folders()
+
     def test_mb_reboot_sensor_data_consistency(self):
         """
         Tests if the data stays consistent after the message broker shutdowns and reboots.
@@ -117,21 +119,24 @@ class TestMessageBrokerIntegration(unittest.TestCase):
 
         test = str(test_data[0])
         mb._sensor_udp_socket.message_queue.put(test)
-
         time.sleep(5)
-
-        subscriber.stop()
         mb.stop()
-
+        time.sleep(5)
+        with self.__lock:
+            db_connection = sqlite3.connect(mb._database_file)
+            db_cursor = db_connection.cursor()
+            db_cursor.execute("INSERT INTO MessageSocketQueue (data) VALUES(?)", (json.dumps(test_data[1]),))
+            db_connection.commit()
+            db_cursor.close()
+            db_connection.close()
         time.sleep(10)
-
         mb = MessageBroker()
+        mb._sensor_udp_socket.message_queue.put(test)
 
         time.sleep(5)
 
         subscriber.stop()
         mb.stop()
-
         time.sleep(5)
 
         items = []
