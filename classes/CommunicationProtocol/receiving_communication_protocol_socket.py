@@ -137,7 +137,7 @@ class ReceivingCommunicationProtocolSocket(CommunicationProtocolSocketBase):
 
             except TimeoutError as e:
                 # Timeout is reached while waiting for a message
-                # Timeout is important to check if the thread shoulrrord stop → start listening again
+                # Timeout is important to check if the thread should stop → start listening again
                 if listener_thread:
                     if listener_thread.stopped():
                         break
