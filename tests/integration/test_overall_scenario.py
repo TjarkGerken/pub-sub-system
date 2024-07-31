@@ -7,13 +7,13 @@ from utils.delete_files_and_folders import delete_files_and_folders
 
 
 class TestOverallScenario(TestCase):
-    @classmethod
-    def tearDownClass(cls):
+    def tearDown(self):
         """
         Deletes the database after the tests are done.
         :return:
         """
         delete_files_and_folders()
+
     def init(self, SEN_NO, SUB_NO):
         delete_files_and_folders()
 
