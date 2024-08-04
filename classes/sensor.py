@@ -221,7 +221,6 @@ class Sensor:
         return None
 
     def run_messenger(self) -> None:
-        ack_received = False
         # Send sensor data to the message broker when available until the thread is stopped
         while not self.__thread_messenger.stopped():
             # Check if there is any sensor data available to send

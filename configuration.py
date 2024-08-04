@@ -16,4 +16,4 @@ LOGGING_PADDING = 65
 
 # Client Settings
 # Maximum interval between sensor readings in seconds
-MAX_SENSOR_INTERVAL_IN_SECONDS = 2
+MAX_SENSOR_INTERVAL_IN_SECONDS = 10

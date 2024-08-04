@@ -5,7 +5,13 @@ import time
 from utils.logger import logger
 
 
-def delete_files_and_folders():
+def delete_files_and_folders() -> None:
+    """
+    Delete all files in the database folder except for the DDL Statements.
+    Additionally, the config folder gets cleared to ensure, that the tests run under the same condition
+
+    :return: None
+    """
     database_folder = 'database'
     config_folder = 'config'
     time.sleep(10)
